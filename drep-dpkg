@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 import argparse, sys
+from libdrep import Package
 
 def main():
     
     parser = argparse.ArgumentParser(description='Debian Repository Package Manager',
-             epilog='Easily manage debian packages in a drep repository' 
+             epilog='Easily manage debian packages in a drep repository. ' 
                     'Copyright SAIT (C) Radlab, Applied Research 2013')
 
     parser.add_argument('command', nargs=1,

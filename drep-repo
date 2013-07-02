@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 import argparse, sys
+from libdrep import Repository
 
 def main():
     
     parser = argparse.ArgumentParser(description='Debian Repository Manager',
-             epilog='Easily manage debian packages and local repositories,'
-                    ' including the creation of base debian packages. '
-                    'Automate everything.  '
+             epilog='Easily manage local repositories, '
                     'Copyright SAIT (C) Radlab, Applied Research 2013')
     parser.add_argument('command', nargs=1,
                         help='add, del, move, copy, info')
-    parser.add_argument('repository', nargs=2,
+    parser.add_argument('repository', nargs=1,
                         help='Name / Address for the repository, Ex: "apt.testsite.com"; '
                         'http:// prefixes are removed automatically.')
     
@@ -28,9 +27,6 @@ def main():
                         help='Remove and re-create the repository with '
                         ' list of packages of the latest version, '
                         'removing all older versions if found')
-    parser.add_argument('--conf', 
-                        help='Use a specific configuration file'
-    
     
     parser.add_argument('--print-address',
                         help='Print all /etc/hosts lines needed for a fully '
@@ -46,7 +42,20 @@ def main():
     
     parseargs = parser.parse_args(sys.argv[1:])
     print(parseargs)
-
+    
+    command = parseargs.command[0].lower()
+    if command == 'add':
+        Repository().add(parseargs.repository[0])
+    elif command == 'del':
+        Repository().delete(parseargs.repository[0])
+    elif command == 'move':
+        Repository().move(parseargs.repository[0])
+    elif command == 'copy':
+        Repository().copy(parseargs.repository[0])
+    elif command == 'info':
+        Repository().info(parseargs.repository[0])
+    else:
+        print('Command not found: %s' % command)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
