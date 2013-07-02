@@ -3,7 +3,7 @@ import argparse, sys
 
 def main():
     
-    parser = argparse.ArgumentParser(description='Debian Repository Manager7',
+    parser = argparse.ArgumentParser(description='Debian Repository Manager',
              epilog='Easily manage debian packages and local repositories,'
                     ' including the creation of base debian packages. '
                     'Automate everything.  '
