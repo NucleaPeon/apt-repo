@@ -8,54 +8,29 @@ def main():
                     ' including the creation of base debian packages. '
                     'Automate everything.  '
                     'Copyright SAIT (C) Radlab, Applied Research 2013')
-    #TODO: Add another arg parser for this parser object using results as argument_default
-    # --init-repo requires special arguments beyond the scope of top level parser
-    # name (req)
-    # --dest (directory path to create repo (default home)) (opt)
-    # --pretend (show process) (opt)
-    parser.add_argument('--add-repo', 
-                        help='Initialize repository based on a name,'
-                        'ex: "apt.saitradlab.ca", '
-                        'http:// prefixes will automatically be removed ')
-    #TODO: Add another arg parser for this parser object using results as argument_default
-    # repo (req) to add deb package to
-    # package (req) to add to repo (if --search flag enabled, look for deb package on path)
-    # --search="testsoftware 0.1" (mutually exclusive from deb and path specification
-    # --arch (all if not found)
-    # --dest (directory path to create deb package (default home/debian)) (opt)
-    # name (req)
-    # version (req)
-    parser.add_argument('--add-pkg', action='append', nargs='*',
-                        help='Adds specified debian packages to a repository')
-    parser.add_argument('--add-arch', action='append', nargs='*',
-                        help='Adds architectures to the repository')
-    parser.add_argument('--add-component', action='append', nargs='*',
-                        help='Adds components to a repository, '
-                        'ex: "stable", "unstable"')
+    parser.add_argument('command', nargs=1,
+                        help='add, del, move, copy, info')
+    parser.add_argument('repository', nargs=2,
+                        help='Name / Address for the repository, Ex: "apt.testsite.com"; '
+                        'http:// prefixes are removed automatically.')
     
-    parser.add_argument('--remove-pkg', action='append', nargs='*',
-                        help='Removes debian packages from a repository')
-    parser.add_argument('--remove-component', action='append', nargs='*',
-                        help='Removes component sections from a repository')
-    parser.add_argument('--remove-repo', action='append', nargs='*',
-                        help='Removes repositories from disk')
-    parser.add_argument('--remove-arch', action='append', nargs='*',
-                        help='Removes architectures from a repository')
+    parser.add_argument('--component',  action='append', nargs='*',
+                        help='Specify a component')
+    parser.add_argument('--repo', action='append', nargs='*',
+                        help='Specify a repository')
+    parser.add_argument('--arch', 
+                        help='Specify an architecture')
     
-    parser.add_argument('--sign-pkg', nargs='*', action='append',
-                        help='Signs debian packages with a gpg key provided' 
+    parser.add_argument('--sign', action='store_true',
+                        help='Signs a repository with a gpg key provided' 
                         ' a key has been created')
-    parser.add_argument('--sign-repo', 
-                        help='Signs a repository with a gpg key')
+    parser.add_argument('--refresh', 
+                        help='Remove and re-create the repository with '
+                        ' list of packages of the latest version, '
+                        'removing all older versions if found')
+    parser.add_argument('--conf', 
+                        help='Use a specific configuration file'
     
-    parser.add_argument('--scan-repo',
-                        help='Generate statistics based on the repository')
-    
-    parser.add_argument('--refresh-repo', 
-                        help='Remove and re-create the repository with all '
-                        'discoverable architectures and components')
-    parser.add_argument('--refresh-all',
-                        help='Remove and re-create all known repositories')
     
     parser.add_argument('--print-address',
                         help='Print all /etc/hosts lines needed for a fully '
@@ -75,8 +50,7 @@ def main():
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        parser.print_help()
-        print("\nNo arguments specified.\n")
+        print("No arguments specified.\n")
         sys.exit(1)
     main()
     sys.exit(0)
