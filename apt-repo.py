@@ -36,11 +36,47 @@ if __name__ == "__main__":
         help='comma-separated list of components, ex: main, non-free, contrib. Defaults to main, non-free and contrib.')
         
     parser.add_argument('[package]', nargs='?', 
-        help='specify the package for add, remove and update commands')
+        help='specify the package for add, remove and update commands, wildcard * can be used for selecting all items in a folder location')
     args = parser.parse_args()
 
-   
+    command = args.command[0].lower()
     
+    if command not in ['create', 'delete', 'add', 'remove', 'update']:
+        sys.stderr.write("Error: Unknown command input: %s\n" % (args.command[0]))
+        sys.exit(1)
+        
+    #TODO:
+    #           - Create 
+    #           - Delete
     
+    #           - Add
+    #           - Remove
+    #           - Update
+       
+    location = args.location
+    print(location)
+    distribution = args.distribution
+    print(distribution)
+    archive = args.archive
+    print(archive)
+    component = args.component
+    print(component)
     
-    
+    if command == 'create':
+        print(":: Checking Location if exists: %s" % str(os.path.exists(location)))
+        distributions = distribution.split(',')
+        print(":: Checking for existing distribution folder structures...")
+        distros_exist = []
+        distros_create = []
+        for distro in distributions:
+            exists = os.path.exists(distro)
+            distros_exist.append('%s -> %s' % (distro, str(exists)))
+            if not exists:
+                distros_create.append(distro)
+        print(":: \t %s" % (str(distros_exist)))
+        if len(distros_create) > 0:
+            print(":: \t Distributions to create... %s" % str(distros_create))
+            for distro in distros_create:
+                os.makedirs(os.path.join(location, distro))
+                print(":: Creating distribution folder: %s" % str(os.path.exists(os.path.join(location, distro))))
+            
