@@ -34,6 +34,7 @@ if __name__ == "__main__":
         help='comma-separated list of archives, ex: stable, unstable, testing. Defaults to stable, unstable, testing and experimental')
     parser.add_argument('--component', '-c', nargs='?', default='main,non-free,contrib',
         help='comma-separated list of components, ex: main, non-free, contrib. Defaults to main, non-free and contrib.')
+    parser.add_argument('--pretend', '-p', action='store_true', help='Go through output, take no actions')
         
     parser.add_argument('[package]', nargs='?', 
         help='specify the package for add, remove and update commands, wildcard * can be used for selecting all items in a folder location')
@@ -52,23 +53,23 @@ if __name__ == "__main__":
     #           - Add
     #           - Remove
     #           - Update
-       
+    pretend = args.pretend
+    
     location = args.location
     print(location)
-    distribution = args.distribution
+    distribution = args.distribution.split(',')
     print(distribution)
-    archive = args.archive
+    archive = args.archive.split(',')
     print(archive)
-    component = args.component
+    component = args.component.split(',')
     print(component)
     
     if command == 'create':
         print(":: Checking Location if exists: %s" % str(os.path.exists(location)))
-        distributions = distribution.split(',')
         print(":: Checking for existing distribution folder structures...")
         distros_exist = []
         distros_create = []
-        for distro in distributions:
+        for distro in distribution:
             exists = os.path.exists(distro)
             distros_exist.append('%s -> %s' % (distro, str(exists)))
             if not exists:
@@ -77,6 +78,11 @@ if __name__ == "__main__":
         if len(distros_create) > 0:
             print(":: \t Distributions to create... %s" % str(distros_create))
             for distro in distros_create:
-                os.makedirs(os.path.join(location, distro))
-                print(":: Creating distribution folder: %s" % str(os.path.exists(os.path.join(location, distro))))
+                if not pretend:
+                    os.makedirs(os.path.join(location, distro))
+                print(":: Creating distribution folder: %s, Pretend: %s" % (
+                    str(os.path.exists(os.path.join(location, distro))), str(pretend)))
+                
+        for arc in archive:
+            print('::')
             
