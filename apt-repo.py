@@ -82,7 +82,40 @@ if __name__ == "__main__":
                     os.makedirs(os.path.join(location, distro))
                 print(":: Creating distribution folder: %s, Pretend: %s" % (
                     str(os.path.exists(os.path.join(location, distro))), str(pretend)))
-                
-        for arc in archive:
-            print('::')
+                archives_exist = []
+                archives_create = []
+                print(':: Checking for existing archive folder structures...')
+                for arc in archive:
+                    exists = os.path.exists(arc)
+                    archives_exist.append('%s -> %s' % (arc, str(exists)))
+                    if not exists:
+                        archives_create.append(arc)
+                print(":: \t %s" % str(archives_exist))
+                if len(archives_create) > 0:
+                    print(":: \t Archive to create... %s" % str(archives_create))
+                    for arc in archives_create:
+                        if not pretend:
+                            os.makedirs(os.path.join(location, distro, arc))
+                        print(":: Creating archive %s in distribution %s, Pretend: %s" % (
+                            str(arc), str(distro), str(pretend)))
+                        comps_exist = []
+                        comps_create = []
+                        print(":: Checking for existing component folder structures...")
+                        for comp in component:
+                            exists = os.path.exists(comp)
+                            comps_exist.append('%s -> %s' % (comp, str(exists)))
+                            if not exists:
+                                comps_create.append(comp)
+                        print(":: \t %s" % str(comps_exist))
+                        if len(comps_create) > 0:
+                            print(":: \t Component to create... %s" % str(comps_create))
+                            for comp in comps_create:
+                                if not pretend:
+                                    os.makedirs(os.path.join(location, distro, arc, comp))
+                                print(":: Creating component %s in archive %s in distribution %s, Pretend: %s" % (
+                                    comp, arc, distro, pretend))
+                                
+                                
+                                
+        
             
