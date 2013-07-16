@@ -14,7 +14,7 @@ Python-based debian repository management system
 """
 
 import argparse, sys, os, conf
-
+from subprocess import PIPE, Popen
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Debian Repository Manager',
@@ -49,7 +49,11 @@ if __name__ == "__main__":
     #TODO:
     #           - Create 
     #           - Delete
-    
+    #                   - Release file
+    #                   - Packages.gz generation
+    #                   - Sources.gz generation
+    #                   - watch folder and automatically regenerate *.gz files if modified
+    #                     there are programs to do this
     #           - Add
     #           - Remove
     #           - Update
@@ -115,7 +119,4 @@ if __name__ == "__main__":
                                 print(":: Creating component %s in archive %s in distribution %s, Pretend: %s" % (
                                     comp, arc, distro, pretend))
                                 
-                                
-                                
-        
             
