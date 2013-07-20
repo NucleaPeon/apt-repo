@@ -16,6 +16,15 @@ Python-based debian repository management system
 import argparse, sys, os, conf
 from subprocess import PIPE, Popen
 
+# Conversion dictionary from common arch names to proper debian repo names.
+ARCH={'x86_64': 'amd64', 'x86': 'i386'}
+
+# Init sane non-required default variables in case user does not set them.
+origin = 'Unknown'
+label = 'Unknown'
+import platform
+arch = ARCH.get(platform.machine(), 'Unknown')
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Debian Repository Manager',
     prog="apt-repo",
@@ -33,13 +42,13 @@ if __name__ == "__main__":
     parser.add_argument('--archive', '-a', nargs='?', default='stable,unstable,testing,experimental',
         help='comma-separated list of archives, ex: stable, unstable, testing. Defaults to stable, unstable, testing and experimental')
     parser.add_argument('--component', '-c', nargs='?', default='main,non-free,contrib',
-        help='comma-separated list of components, ex: main, non-free, contrib. Defaults to main, non-free and contrib.')
+        help='comma-separated list of components, ex: main, non-free, contrib. Defaults to main, non-free and contrib')
     parser.add_argument('--pretend', '-p', action='store_true', help='Go through output, take no actions')
+    parser.add_argument('--recreate', '-r', action='store_true', help='Recreate structure even if certain folders exist'
         
     parser.add_argument('[package]', nargs='?', 
         help='specify the package for add, remove and update commands, wildcard * can be used for selecting all items in a folder location')
     args = parser.parse_args()
-
     command = args.command[0].lower()
     
     if command not in ['create', 'delete', 'add', 'remove', 'update']:
@@ -116,7 +125,33 @@ if __name__ == "__main__":
                             for comp in comps_create:
                                 if not pretend:
                                     os.makedirs(os.path.join(location, distro, arc, comp))
+                                    releasefile = open(os.path.join(location, distro, arc, comp, 'Release'), 'w')
+                                    releasefile.write('''Archive: %s\nComponent: %s\nOrigin: %s\nLabel: %s\nArchitecture: %s''' %
+                                                      (arc, comp, origin, label, arch))
+                                    releasefile.close()
                                 print(":: Creating component %s in archive %s in distribution %s, Pretend: %s" % (
                                     comp, arc, distro, pretend))
+                                print(":: Creating Release File")
                                 
-            
+def generate_release_file(archive, component, origin=origin, label=label, arch=arch):
+    '''
+    :Description:
+        Creates the Release file, a short text file with a description of the
+        repo. If arguments are not supplied for origin, label, and arch, a
+        best guess is made for arch and "Unknown" is set for the former two.
+        
+        Parameters arhive and component are automatically assigned when folders
+        are being created. 
+    :Parameters:
+        - archive: string; examples: quantal, wheezy, precise
+        - component: string; examples: stable, unstable, testing, experimental
+        - origin: string; your company name
+        - label: string; your repository name
+        - arch: string; architecture of the repo. Default value is current pc 
+                architecture
+
+    :Returns:
+        - None: method creates and generates release file. Will overwrite if
+                called twice
+    '''
+    pass
