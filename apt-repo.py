@@ -44,7 +44,7 @@ if __name__ == "__main__":
     parser.add_argument('--component', '-c', nargs='?', default='main,non-free,contrib',
         help='comma-separated list of components, ex: main, non-free, contrib. Defaults to main, non-free and contrib')
     parser.add_argument('--pretend', '-p', action='store_true', help='Go through output, take no actions')
-    parser.add_argument('--recreate', '-r', action='store_true', help='Recreate structure even if certain folders exist'
+    parser.add_argument('--recreate', '-r', action='store_true', help='Recreate structure even if certain folders exist')
         
     parser.add_argument('[package]', nargs='?', 
         help='specify the package for add, remove and update commands, wildcard * can be used for selecting all items in a folder location')
