@@ -72,6 +72,8 @@ if __name__ == "__main__":
         help='comma-separated list of components, ex: main, non-free, contrib. Defaults to main, non-free and contrib')
     parser.add_argument('--pretend', '-p', action='store_true', help='Go through output, take no actions')
     parser.add_argument('--recreate', '-r', action='store_true', help='Recreate structure even if certain folders exist')
+    parser.add_argument('--quiet', '-q', action="store_true", help="Do not print to stdout")
+    parser.add_argument('--write-repos', '-w', nargs='1', help="Writes the resulting repositories to a file based on supplied path")
         
     parser.add_argument('[package]', nargs='?', 
         help='specify the package for add, remove and update commands, wildcard * can be used for selecting all items in a folder location')
