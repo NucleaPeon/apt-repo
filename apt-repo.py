@@ -25,6 +25,33 @@ label = 'Unknown'
 import platform
 arch = ARCH.get(platform.machine(), 'Unknown')
 
+def generate_release_file(archive, component, origin=origin, label=label, arch=arch):
+    '''
+    :Description:
+        Creates the Release file, a short text file with a description of the
+        repo. If arguments are not supplied for origin, label, and arch, a
+        best guess is made for arch and "Unknown" is set for the former two.
+        
+        Parameters arhive and component are automatically assigned when folders
+        are being created. 
+    :Parameters:
+        - archive: string; examples: quantal, wheezy, precise
+        - component: string; examples: stable, unstable, testing, experimental
+        - origin: string; your company name
+        - label: string; your repository name
+        - arch: string; architecture of the repo. Default value is current pc 
+                architecture
+
+    :Returns:
+        - None: method creates and generates release file. Will overwrite if
+                called twice
+    '''
+    releasefile = open(os.path.join(location, distro, arc, comp, 'Release'), 'w')
+    releasefile.write('''Archive: %s\nComponent: %s\nOrigin: %s\nLabel: %s\nArchitecture: %s''' %
+                     (arc, comp, origin, label, arch))
+    releasefile.close()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Debian Repository Manager',
     prog="apt-repo",
@@ -125,33 +152,9 @@ if __name__ == "__main__":
                             for comp in comps_create:
                                 if not pretend:
                                     os.makedirs(os.path.join(location, distro, arc, comp))
-                                    releasefile = open(os.path.join(location, distro, arc, comp, 'Release'), 'w')
-                                    releasefile.write('''Archive: %s\nComponent: %s\nOrigin: %s\nLabel: %s\nArchitecture: %s''' %
-                                                      (arc, comp, origin, label, arch))
-                                    releasefile.close()
+                                    generate_release_file(arc, comp, origin, label, arch)
                                 print(":: Creating component %s in archive %s in distribution %s, Pretend: %s" % (
                                     comp, arc, distro, pretend))
                                 print(":: Creating Release File")
                                 
-def generate_release_file(archive, component, origin=origin, label=label, arch=arch):
-    '''
-    :Description:
-        Creates the Release file, a short text file with a description of the
-        repo. If arguments are not supplied for origin, label, and arch, a
-        best guess is made for arch and "Unknown" is set for the former two.
-        
-        Parameters arhive and component are automatically assigned when folders
-        are being created. 
-    :Parameters:
-        - archive: string; examples: quantal, wheezy, precise
-        - component: string; examples: stable, unstable, testing, experimental
-        - origin: string; your company name
-        - label: string; your repository name
-        - arch: string; architecture of the repo. Default value is current pc 
-                architecture
 
-    :Returns:
-        - None: method creates and generates release file. Will overwrite if
-                called twice
-    '''
-    pass
