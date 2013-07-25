@@ -55,11 +55,11 @@ def generate_release_file(archive, component, origin=origin, label=label, arch=a
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Debian Repository Manager',
     prog="apt-repo",
-    epilog='Each action that is called: create/delete/add/remove/update ' +
+    epilog='Each action that is called: create/delete/add/remove/update/status ' +
     'has its own subset of commands that can be viewed by calling the incomplete' +
     ' command.')
     
-    parser.add_argument('command', nargs=1, help='create/delete/add/remove/update')
+    parser.add_argument('command', nargs=1, help='create/delete/add/remove/update/status')
     parser.add_argument('--location', '-l', nargs='?', default=os.getcwd(), 
         help='path to directory where repository should be created; will use default repository names if none specified.' + 
         ' Defaults to the currently directory.')
@@ -73,14 +73,14 @@ if __name__ == "__main__":
     parser.add_argument('--pretend', '-p', action='store_true', help='Go through output, take no actions')
     parser.add_argument('--recreate', '-r', action='store_true', help='Recreate structure even if certain folders exist')
     parser.add_argument('--quiet', '-q', action="store_true", help="Do not print to stdout")
-    parser.add_argument('--write-repos', '-w', nargs='1', help="Writes the resulting repositories to a file based on supplied path")
+    parser.add_argument('--write-repos', '-w', nargs=1, help="Writes the resulting repositories to a file based on supplied path")
         
     parser.add_argument('[package]', nargs='?', 
         help='specify the package for add, remove and update commands, wildcard * can be used for selecting all items in a folder location')
     args = parser.parse_args()
     command = args.command[0].lower()
     
-    if command not in ['create', 'delete', 'add', 'remove', 'update']:
+    if command not in ['create', 'delete', 'add', 'remove', 'update', 'status']:
         sys.stderr.write("Error: Unknown command input: %s\n" % (args.command[0]))
         sys.exit(1)
         
@@ -95,14 +95,18 @@ if __name__ == "__main__":
     #           - Add
     #           - Remove
     #           - Update
+    #           - Status
     pretend = args.pretend
     
     location = args.location
-    print(location)
-    distribution = args.distribution.split(',')
+    distribution = args.distribution
+    if distribution is None:
+        print(":: Error: Unknown Distribution; either overwrite with arguments or change in config file.\n"
+              "\tYour /etc/os-release is not recognized.")
+        sys.exit(2)
     print(distribution)
     archive = args.archive.split(',')
-    print(archive)
+    print(str(archive))
     component = args.component.split(',')
     print(component)
     
@@ -159,4 +163,10 @@ if __name__ == "__main__":
                                     comp, arc, distro, pretend))
                                 print(":: Creating Release File")
                                 
-
+    elif command == 'status':
+        print(":: Reporting Repository Status")
+        
+        for distro in distribution:
+            path_to_repo = os.path.join(location, distro)
+            print (os.listdir(path_to_repo))
+        
