@@ -64,7 +64,8 @@ if __name__ == "__main__":
                         help="(Default) [create] Writes a simple repo file structure")
     parser.add_argument('--directory', '-d', default=os.path.join(os.getcwd(), "foo"), nargs='?',
                         help="Sets the top level directory for filesystem repositories")
-    parser.add_argument('--name', '-n', nargs=1, help="Sets the account name of the repository")
+    parser.add_argument('--name', '-n', nargs='?', default="Undefined",
+                        help="Sets the account name of the repository")
     parser.add_argument('--email', '-e', nargs=1, help="Sets the account email address")
     parser.add_argument('--ip', '-i', nargs=1, help="Overrides the auto ip discovering feature")
     parser.add_argument('--gpg', '-g', nargs=1, default="./apt-repo.public.key",
@@ -98,18 +99,20 @@ if __name__ == "__main__":
                 for z in args.architecture:
                     os.makedirs(os.path.join(path, x, y, arch(z)),
                                 exist_ok=True)
+                    with open(os.path.join(path, x, y, z, "Release"), 'w') as f:
+                        f.write("Archive: {}\n".format(x))
+                        f.write("Version: 0.1\n")
+                        f.write("Component: {}\n".format(y))
+                        f.write("Origin: {}\n".format(args.name))
+                        f.write("Label: {}\n".format(args.name))
+                        f.write("Architecture: {}\n".format(arch(z)))
+
+
+
+                    #TODO: Check for existing Release file
 
     sys.exit(0)
 '''
-$ cd ~/public_html/debian
-$ cat > dists/unstable/main/binary-amd64/Release << EOF
-Archive: unstable
-Version: 4.0
-Component: main
-Origin: Foo
-Label: Foo
-Architecture: amd64
-EOF
 $ cat > dists/unstable/main/source/Release << EOF
 Archive: unstable
 Version: 4.0
