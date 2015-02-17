@@ -1,9 +1,0 @@
-APT::FTPArchive::Release {
-  Origin "Foo";
-  Label "Foo";
-  Suite "unstable";
-  Codename "sid";
-  Architectures "amd64";
-  Components "main";
-  Description "Public archive for Foo";
-};

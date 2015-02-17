@@ -35,6 +35,11 @@ def arch(architecture):
     '''
     return ARCH.get(architecture, architecture)
 
+def ini_section_header(properties_file, header_name):
+    yield '[{}]\n'.format(header_name)
+    for line in properties_file:
+        yield line
+
 if __name__ == "__main__":
 
     simple = True
@@ -55,7 +60,6 @@ if __name__ == "__main__":
     # option (-p) to each package command
     parser.add_argument('action',
                        help="[repo]: create, delete, status [package]: add, remove, info publish")
-    parser.add_argument('args', nargs='+', help="Types of repositories to make or package names specified")
     parser.add_argument('--simple', action="store_true", default=True,
                         help="(Default) [create] Writes a simple repo file structure")
     parser.add_argument('--directory', '-d', default=os.path.join(os.getcwd(), "foo"), nargs='?',
@@ -67,11 +71,16 @@ if __name__ == "__main__":
                         help="Exports (and optionally creates) the gpg key to target path and filename")
     parser.add_argument('--publish', '-p', action="store_true",  default=False,
                         help="When accompanying a package command, performs the command")
-    parser.add_argument('--architecture', '-a', nargs="?", default=platform.machine(),
-                        help="Architecture to create, defaults to current system arch")
+    parser.add_argument('--architecture', '-a', nargs="*", default=[platform.machine(), 'source'],
+                        help="Architectures to create repository with; defaults to current arch and source")
+    parser.add_argument('--toplevel', '-t', nargs="?", default='debian',
+                        help="name of top level directory; defaults to 'debian'")
+    parser.add_argument('--platforms', '-f', nargs="*", default=['stable', 'unstable', 'testing'],
+                        help="Platforms to support; defaults to 'stable', 'unstable' and 'testing'. "
+                        "Other official platforms are 'experimental' and '*/updates (stable/updates), etc.")
+    parser.add_argument('--package-restrictions', '-r', nargs="*", default=["main"],
+                         help="Package Freedom Restrictions (main, contrib, non-free), defaults to 'main'")
     args = parser.parse_args()
-    print(args.args)
-
 
     if args.action.lower() == "create":
         print("Create")
@@ -79,21 +88,19 @@ if __name__ == "__main__":
         umask = os.umask(0o022)
         print(umask)
         print(args.directory)
-        os.makedirs(os.path.join(args.directory, 'debian', 'pool', 'main'),
-                    exist_ok=True)
-        os.makedirs(os.path.join(os.path.join(args.directory, 'debian', 'dists', *args.args), 'source'),
-                    exist_ok=True)
-        os.makedirs(os.path.join(os.path.join(args.directory, 'debian', 'dists', *args.args), "binary-{}".format(
-            arch(args.architecture))), exist_ok=True)
+        for x in args.package_restrictions:
+            os.makedirs(os.path.join(args.directory, args.toplevel, 'pool', x),
+                        exist_ok=True)
+        # Ugly 3x for loop, let's be straight forward and append all unique paths
+        path = os.path.join(args.directory, args.toplevel, 'dists')
+        for x in args.platforms:
+            for y in args.package_restrictions:
+                for z in args.architecture:
+                    os.makedirs(os.path.join(path, x, y, arch(z)),
+                                exist_ok=True)
 
     sys.exit(0)
 '''
-Create an archive tree called "Origin: Foo" as the following.
-
-$ umask 022
-$ mkdir -p ~/public_html/debian/pool/main
-$ mkdir -p ~/public_html/debian/dists/unstable/main/binary-amd64
-$ mkdir -p ~/public_html/debian/dists/unstable/main/source
 $ cd ~/public_html/debian
 $ cat > dists/unstable/main/binary-amd64/Release << EOF
 Archive: unstable
