@@ -15,11 +15,18 @@ Python-based debian repository management system
 """
 
 import argparse, sys, os, platform
+import datetime
 from subprocess import PIPE, Popen
 
 
 ARCH = {"x86_64": "amd64",
         "x86": "i386"}
+
+def archdir(architecture):
+    if architecture != "source":
+        return "binary-{}".format(arch(architecture))
+
+    return arch(architecture)
 
 def arch(architecture):
     '''
@@ -60,11 +67,12 @@ if __name__ == "__main__":
     # option (-p) to each package command
     parser.add_argument('action',
                        help="[repo]: create, delete, status [package]: add, remove, info publish")
+    parser.add_argument('--desc', nargs='?', default="", help="Set a repository description")
     parser.add_argument('--simple', action="store_true", default=True,
                         help="(Default) [create] Writes a simple repo file structure")
     parser.add_argument('--directory', '-d', default=os.path.join(os.getcwd(), "foo"), nargs='?',
                         help="Sets the top level directory for filesystem repositories")
-    parser.add_argument('--name', '-n', nargs='?', default="Undefined",
+    parser.add_argument('--name', '-n', nargs='?', default="Debian",
                         help="Sets the account name of the repository")
     parser.add_argument('--email', '-e', nargs=1, help="Sets the account email address")
     parser.add_argument('--ip', '-i', nargs=1, help="Overrides the auto ip discovering feature")
@@ -87,102 +95,77 @@ if __name__ == "__main__":
         print("Create")
         print(args)
         umask = os.umask(0o022)
-        print(umask)
-        print(args.directory)
         for x in args.package_restrictions:
             os.makedirs(os.path.join(args.directory, args.toplevel, 'pool', x),
                         exist_ok=True)
         # Ugly 3x for loop, let's be straight forward and append all unique paths
         path = os.path.join(args.directory, args.toplevel, 'dists')
+        os.makedirs(path)
+        with open(os.path.join(path, 'Release'), 'w') as f:
+            f.write("Origin: {}\n".format(args.name))
+            f.write("Label: {}\n".format(args.name))
+            f.write("Suite: {}\n".format('wheezy'))
+            f.write("Codename: {}\n".format('wheezy')) # FIXME
+            f.write("Date: {}\n".format(datetime.datetime.strftime(datetime.datetime.now(), "%a, %d %b %Y %H:%M:%S %Z")))
+            f.write("Architectures: {}\n".format(' '.join([arch(a) for a in args.architecture])))
+            f.write("Components: {}\n".format(' '.join(args.package_restrictions)))
+            f.write("Description: {}\n".format(args.desc))
+            f.write("MD5Sum:\n  {}".format('\n  '.join([])))
+
+        with open(os.path.join(path, 'Release.gpg'), 'w') as f:
+            f.write("")
+
+        for z in args.architecture:
+            with open(os.path.join(path, 'Contents-{}'.format(arch(z))), 'w') as f:
+                pass
+
+
+
         for x in args.platforms:
             for y in args.package_restrictions:
                 for z in args.architecture:
-                    os.makedirs(os.path.join(path, x, y, arch(z)),
+                    os.makedirs(os.path.join(path, x, y, archdir(z)),
                                 exist_ok=True)
-                    with open(os.path.join(path, x, y, z, "Release"), 'w') as f:
+                    with open(os.path.join(path, x, y, archdir(z), "Release"), 'w') as f:
                         f.write("Archive: {}\n".format(x))
-                        f.write("Version: 0.1\n")
-                        f.write("Component: {}\n".format(y))
                         f.write("Origin: {}\n".format(args.name))
                         f.write("Label: {}\n".format(args.name))
+                        f.write("Component: {}\n".format(y))
                         f.write("Architecture: {}\n".format(arch(z)))
+                        #f.write("Version: 0.1\n")
 
+        #TODO: ^^^ Check for existing Release file
 
+        with open(os.path.join(args.directory, args.toplevel, "aptftp.conf"), 'w') as f:
+            #TODO: Find out how multiple architectures and suites and components are defined
+            f.write("APT::FTPArchive::Release {\n")
+            f.write("  Origin \"{}\";\n".format(args.name))
+            f.write("  Label \"{}\";\n".format(args.name))
+            f.write("  Suite {};\n".format(' '.join(["\"{}\"".format(x) for x in args.platforms])))
+            # Codename: "sid"
+            f.write("  Architectures {};\n".format(' '.join(["\"{}\"".format(x) for x in args.architecture])))
+            f.write("  Components {};\n".format(' '.join(["\"{}\"".format(x) for x in args.package_restrictions])))
+            f.write("  Description \"Public Archive for {}\";\n".format(args.name))
+            f.write("};")
 
-                    #TODO: Check for existing Release file
+        with open(os.path.join(args.directory, args.toplevel, "aptgenerate.conf"), 'w') as f:
+            f.write("Dir::ArchiveDir \".\";\n")
+            f.write("Dir::CacheDir \".\";\n")
+            f.write("TreeDefault::Directory \"pool/\";\n")
+            f.write("TreeDefault::SrcDirectory \"pool/\";\n")
+            f.write("Default::Packages::Extensions \".deb\";\n")
+            f.write("Default::Packages::Compress \". gzip bzip2\";\n")
+            f.write("Default::Sources::Compress \"gzip bzip2\";\n")
+            f.write("Default::Contents::Compress \"gzip bzip2\";\n")
+
+            for x in args.platforms:
+                for y in args.package_restrictions:
+                    for z in args.architecture:
+                        if z != "source":
+                            f.write("BinDirectory \"dists/unstable/main/binary-amd64\" {\n")
+                            f.write("  Packages \"dists/{}/{}/{}/Packages\";\n".format(x, y, 'binary-' + z)) # binary-amd64, not just amd64
+                            f.write("  Contents \"dists/{}/Contents-{}\";".format(x, 'Contents-' + z)) # amd64 only
+                            f.write("  SrcPackages \"dists/{}/{}/source/Sources\";\n".format(x, y))
+                            f.write("};\n")
 
     sys.exit(0)
-'''
-$ cat > dists/unstable/main/source/Release << EOF
-Archive: unstable
-Version: 4.0
-Component: main
-Origin: Foo
-Label: Foo
-Architecture: source
-EOF
-$ cat >aptftp.conf <<EOF
-APT::FTPArchive::Release {
-  Origin "Foo";
-  Label "Foo";
-  Suite "unstable";
-  Codename "sid";
-  Architectures "amd64";
-  Components "main";
-  Description "Public archive for Foo";
-};
-EOF
-$ cat >aptgenerate.conf <<EOF
-Dir::ArchiveDir ".";
-Dir::CacheDir ".";
-TreeDefault::Directory "pool/";
-TreeDefault::SrcDirectory "pool/";
-Default::Packages::Extensions ".deb";
-Default::Packages::Compress ". gzip bzip2";
-Default::Sources::Compress "gzip bzip2";
-Default::Contents::Compress "gzip bzip2";
-
-BinDirectory "dists/unstable/main/binary-amd64" {
-  Packages "dists/unstable/main/binary-amd64/Packages";
-  Contents "dists/unstable/Contents-amd64";
-  SrcPackages "dists/unstable/main/source/Sources";
-};
-
-Tree "dists/unstable" {
-  Sections "main";
-  Architectures "amd64 source";
-};
-EOF
-You can automate repetitive updates of APT archive contents on your server system by configuring dupload.
-
-Place all package files into "~foo/public_html/debian/pool/main/" by executing "dupload -t foo changes_file" in client while having "~/.dupload.conf" containing the following.
-
-$cfg{'foo'} = {
-  fqdn => "www.example.com",
-  method => "scpb",
-  incoming => "/home/foo/public_html/debian/pool/main",
-  # The dinstall on ftp-master sends emails itself
-  dinstall_runs => 1,
-};
-
-$cfg{'foo'}{postupload}{'changes'} = "
-  echo 'cd public_html/debian ;
-  apt-ftparchive generate -c=aptftp.conf aptgenerate.conf;
-  apt-ftparchive release -c=aptftp.conf dists/unstable >dists/unstable/Release ;
-  rm -f dists/unstable/Release.gpg ;
-  gpg -u 3A3CB5A6 -bao dists/unstable/Release.gpg dists/unstable/Release'|
-  ssh foo@www.example.com  2>/dev/null ;
-  echo 'Package archive created!'";
-The postupload hook script initiated by dupload(1) creates updated archive files for each upload.
-
-You can add this small public archive to the apt-line of your client system by the following.
-
-$ sudo bash
-# echo "deb http://www.example.com/~foo/debian/ unstable main" \
-   >> /etc/apt/sources.list
-# apt-key add foo.public.key
-        Tip
-If the archive is located on the local filesystem, you can use "deb file:///home/foo/debian/ …" instead.
-
-
-'''

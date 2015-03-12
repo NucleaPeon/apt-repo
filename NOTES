@@ -1,0 +1,173 @@
+Repositories
+------------
+
+Dependencies:
+=============
+
+For hosting Repositories:
+
+apt-transport-https (for connecting to https apt repositories)
+nginx/apache2/(possibly) node/tornado (for serving repository data). apache2 is most recommended for Windows Operating Systems because of its stable support.
+
+
+Creating Debian Packages:
+=========================
+
+Dependencies:
+    dpkg-deb (builds)
+    dpkg-scanpackages (generates Packages files)
+
+From Source:
+
+checkinstall (for creating source-based debian packages on target arch)
+    If you are creating a checkinstall package and you change the ./configure parameters such as --prefix, you will need to ensure directories exist
+    because checkinstall will not create them for you.
+
+
+From Existing Tarballs:
+
+
+From Scratch:
+
+    - Create an executable script or have libraries/content to distribute ready.
+    - Create folder representing the Package name (without versioning. Ex: "mypackage" to create mypackage-0.1_amd64.deb)
+    - Create Control file (specifies behaviour)
+
+    Directory Structure:
+
+        /
+        /DEBIAN/
+               /control
+
+    Control File:
+
+        Package:
+        Version:
+        Section:
+        Priority:
+        Architecture:
+        Essential:
+        Installed-Size:
+        Maintainer:
+        Description:
+
+
+    dch --create -v _______ --package ______
+                    version            name
+
+
+Anatomy of a Debian Package:
+============================
+
+Control File:
+    Contains specifications such as versioning, naming, contact details and dependencies.
+
+Data Archive:
+    Contains data to install onto target Filesystem
+
+
+
+Debian Repository Information:
+==============================
+
+Repository Types:
+
+    Codenames: "sid", "lenny", "wheezy", etc.
+    Actual Types: "unstable", "stable", "testing", "experimental", "backports"
+
+    Use of codenames is recommended so that stable of one codename doesn't conflict with another.
+    It adds a layer of separation between migrations.
+
+Repository Release Files:
+
+    Contains the archive description, integrity information, and an optional Release.gpg file for
+    signing. .gpg for top-level only (afaik)
+
+    Top-Level Release File:
+        Origin: (Company name)
+        Label: (Repo name)
+        Suite: (one of the Repo Types: "stable", "unstable", etc)
+        Codename: (one of the codenames for target Debian install, possibly Ubuntu as well)
+        Date: day, dd Mon YYYY HH:MM:SS UTC
+        Architectures: amd64 all i386 (etc)
+        Components: (component types: "main", "contrib" and/or "non-free")
+        Description: Repo blurb
+        MD5Sum:
+            [hash] [size] [Contents-[arch].gz filename]
+
+    Architecture-Level Release Files:
+        (With arch-level releases, you must include "binary-" as the prefix for the target package folder.
+         In your sources.list file and in all other places, it's still [arch], but on the filesystem you
+         need to specify "binary-amd64" or "binary-armv6").
+
+         Archive: (Codename or Suite of this specific repository)
+         Origin: (Company Name)
+         Label: (Repo Name)
+         Component: (one of the component types: "main", "contrib" and/or "non-free")
+         Architecture (one of the architectures, ex: amd64)
+         NotAutomatic: yes (for experimental or backport repositories, so it doesn't auto select bad/
+                            broken packages)
+
+
+Repository Packages.gz File:
+
+    Currently, we generate the Packages.gz file by using the debian/ubuntu specific "dpkg-scanpackages" file.
+    TODO: Create this program in python so it can be shared on linux platforms that are not debian specific:
+
+    dpkg-scanpackages [arch] | gzip -9c > [arch]/Packages.gz
+
+    The [arch] commands are the *paths* to the architecture folder. This means this command can be run from
+    anywhere as long as the paths are valid repository paths.
+
+
+Repository Signing:
+
+    A few ways to do this:
+
+    Manually:
+        Use gpg program to generate the file or use apt-key with a public archive key
+
+    Automatically:
+        Use base-files package to install keyring
+
+
+Setting up a Debian Repository:
+===============================
+
+    Simple Local Area Network Repository:
+
+        WARNING: Do not provide outside (public) access to this Repository. It should be used for
+        reducing network load on mirrors and servers providing the packages. It's not very
+        maintainable and could allow for intruders to distribute harmful packages if admin is not
+        careful.
+
+        REPO LIST ENTRY:
+            deb http(s)://ip_addr/folder_name_with_packages [arch]
+
+        FILESYSTEM FOLDER:
+            /var/www/folder_name_with_packages
+            (requires a Packages.gz file for every .deb file served, see "Repository Packages.gz File"
+            section.)
+
+
+    Proper Debian Repository:
+
+        REPO LIST ENTRY:
+            deb http(s)://ip_addr_or_domain_name/debian [codename/repo types] [package types]
+            deb http://127.0.0.1/debian wheezy main contrib non-free
+
+        FILESYSTEM FOLDER:
+            Short:
+                /var/www/debian
+
+            Full:
+                /var/www/debian/dists/[codename/type]/[package type]/[architecture (binary-[arch] or source)]
+
+            Full Ex:
+                /var/www/debian/dists/wheezy/main/binary-amd64/Packages.gz
+                /var/www/debian/dists/wheezy/main/binary-amd64/Release
+
+        WEBSERVER TARGET:
+            index: /var/www
+
+
