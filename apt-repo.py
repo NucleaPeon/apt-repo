@@ -149,7 +149,11 @@ if __name__ == "__main__":
         import json
         if os.path.exists(path):
             import socket
-            print(json.dumps(dict(ipaddr=socket.gethostbyname(socket.gethostname())), default=str))
+            print(json.dumps(dict(ipaddr=socket.gethostbyname(socket.gethostname())), 
+                             default=str,
+                             sort_keys=True,
+                             indent=4,
+                             separators=(',', ': ',)))
     
     elif action == "source":
         '''
