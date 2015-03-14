@@ -1,10 +1,14 @@
-__all__ = [ARCH, archdir]
-
 ARCH = {"x86_64": "amd64",
         "x86": "i386"}
 
-def archdir(architecture):
-    if architecture != "source":
-        return "binary-{}".format(arch(architecture))
+def get_arch(arch):
+    return ARCH.get(arch, arch)
 
-    return arch(architecture)
+def arch_dir(architecture):
+    if architecture != "source":
+        return "binary-{}".format(get_arch(architecture))
+
+    return get_arch(architecture)
+
+
+__all__ = [get_arch, arch_dir]
