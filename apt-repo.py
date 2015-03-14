@@ -22,6 +22,7 @@ Python-based debian repository management system
 import argparse, sys, os, platform
 import datetime
 import platform
+import logging
 
 
 from subprocess import PIPE, Popen
@@ -32,7 +33,7 @@ def ini_section_header(properties_file, header_name):
     for line in properties_file:
         yield line
         
-ACTIONS = ["create", "delete", "status", "info", "add", "remove"]
+ACTIONS = ["create", "delete", "info", "add", "remove", "source"]
 
 if __name__ == "__main__":
     '''
@@ -65,13 +66,18 @@ if __name__ == "__main__":
                         "Other official platforms are 'experimental' and '*/updates (stable/updates), etc.")
     parser.add_argument('--restrictions', '-r', nargs="*", default=["main"],
                          help="Package Freedom Restrictions (main, contrib, non-free), defaults to 'main'")
+    parser.add_argument('--verbosity', '-v', nargs='?', default=0, help="Output program calls to stdout")
+    # TODO: --force (on add and remove actions, create and delete (respectively) the components that would 
+    #                otherwise make it fail.)
+    
     args = parser.parse_args()
     # <-- End Command Line Argument parsing
 
     # --> Start managing cli arguments to produce an Action
     nix_platform = platform.linux_distribution() # (name, id,)
-    action = args.action.lower()
     
+    # Catches all invalid actions and exists the program so we can avoid validation later.
+    action = args.action.lower()
     if not action in ACTIONS:
         sys.stderr.write("Invalid action: {}.\nAvailable actions: {}\n".format(
             action, ', '.join(ACTIONS)))
@@ -132,6 +138,32 @@ if __name__ == "__main__":
                 args.directory))
             sys.exit(2)
         
+    elif action == "info":
+        '''
+        INFO:
+            - List all the packages that exist in the components specified in the arguments
+            - List each component of the repository that exists
+            - List total stats of each repo section
+            - List the ip address of the repo, list the deb line for the sources file
+        '''
+        import json
+        if os.path.exists(path):
+            import socket
+            print(json.dumps(dict(ipaddr=socket.gethostbyname(socket.gethostname())), default=str))
+    
+    elif action == "source":
+        '''
+        SOURCE:
+            - Output the line(s) in debian source .list format based on components specified in arguments
+        '''
+        pass
+    
+    elif action == "add":
+        # Adds a component to an existing repo.
+        pass
+    
+    elif action == "remove":
+        pass
             
 
     # <-- Action has been performed, if successful we exit with 0 status
