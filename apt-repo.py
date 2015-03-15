@@ -9,6 +9,12 @@ Python-based debian repository management system
     Manages and automates a repository with emphasis on the greatest ease of
     automation and control.
     
+    This program aims to do as much as possible for the user and automate all
+    the small details so the user doesn't have to worry about them. Automate
+    gpg and hashes, update them whenever an update is called for, create
+    files for all possible scenarios whenever possible -- always create 
+    options for source, even if it isn't used.
+    
     :create:
         By default, this creates a repository in the current directory with 
         defaults for a stable main repository. FIXME: Default to current dist
@@ -24,6 +30,7 @@ import datetime
 import platform
 import logging
 import socket
+import hashlib
 
 
 from subprocess import PIPE, Popen
@@ -34,18 +41,43 @@ def ini_section_header(properties_file, header_name):
     for line in properties_file:
         yield line
         
-ACTIONS = ["create", "delete", "info", "add", "remove", "source", "export"]
+ACTIONS = ["create", "delete", "info", "add", "remove", "export", "gpg", "help"]
 
 if __name__ == "__main__":
     '''
     TODO:
-        --secure (full secure apt repository, auto configure gpg)
+        Write Release files with md5sum on Packages{.gz} and Sources{.gz} if applicable
         
     '''
     
+    # --> Declare all methods to reuse code here:
     def format_deb_line(ip, toplevel, platforms, restrictions, https=False):
         return "deb http{}://{}/{} {} {}".format("s" if https else "", ip, toplevel,
                                                  ' '.join(platforms), ' '.join(restrictions))
+
+    # FIXME: This needs to be moved into the lib folder so it can be shared with
+    #        apt-pkg, which also needs to update files as packages are tracked.
+
+    def md5sum_file(path, filename):
+        f = os.path.join(path, filename)
+        if not os.path.exists(f):
+            raise Exception("Attmepted to generate hash of file {}, file not found".format(f))
+        
+        md5 = hashlib.md5()
+        with open(f, 'r') as openf:
+            md5.update(openf.read().encode("utf-8")) # FIXME: Read in at 128 bytes so we don't overload on huge files
+        
+        filesize = os.stat(f).st_size
+        # format and return it
+        # FIXME: we may need to buffer and right-align the filesize for readability and standization
+        return " {}\t{} {}".format(md5.hexdigest(), filesize, filename) 
+
+    def gen_gpg_key():
+        proc = Popen(["gpg", "--gen-key", "--batch"])
+        proc.communicate()
+        
+    
+    # <-- End Method Declarations
 
     # --> Start Command Line Argument parsing
     parser = argparse.ArgumentParser(description="Debian Repository Management Tool")
@@ -61,7 +93,7 @@ if __name__ == "__main__":
                         help="Sets the account email address")
     parser.add_argument('--ip', '-i', nargs=1, help="Overrides the auto ip discovering feature")
     parser.add_argument('--gpg', '-g', nargs=1, default=None, #"./apt-repo.public.key",
-                        help="Exports (and optionally creates) the gpg key to target path and filename")
+                        help="Exports (and optionally creates) the gpg key to target path and filename") # TODO: Confirm use case of this option
     parser.add_argument('--architecture', '-a', nargs="*", default=[get_arch(platform.machine())],
                         help="Architectures to create repository with; defaults to current arch and source")
     parser.add_argument('--toplevel', '-t', nargs="?", default='debian',
@@ -100,7 +132,11 @@ if __name__ == "__main__":
                         exist_ok=True)
         # Ugly 3x for loop, let's be straight forward and append all unique paths
         os.makedirs(path, exist_ok=True)
-        print([get_arch(a) for a in args.architecture])
+        
+        # Before the Release file is created, we need the following files to be created and filled out. TODO
+        # RESEARCH THIS NOW
+        
+        relfiles = ["Packages", "Packages.gz", "Sources", "Sources.gz"]
         with open(os.path.join(path, 'Release'), 'w') as f:
             f.write("Origin: {}\n".format(args.name))
             f.write("Label: {}\n".format(args.name))
@@ -110,7 +146,13 @@ if __name__ == "__main__":
             f.write("Architectures: {}\n".format(' '.join([get_arch(a) for a in args.architecture])))
             f.write("Components: {}\n".format(' '.join(args.restrictions)))
             f.write("Description: {}\n".format(args.desc))
-            f.write("MD5Sum:\n  {}".format('\n  '.join([])))
+            f.write("MD5Sum:\n")
+            for x in relfiles:
+                if os.path.exists(os.path.join(path, x)):
+                    f.write(" {}\n".format(md5sum_file(path, x)))
+                    
+        # IMPORTANT! GNU GPG requires some work going on in order to generate entropy
+        # This is a stop-gap for an important step.
 
 #        with open(os.path.join(path, 'Release.gpg'), 'w') as f:
 #            f.write("")
@@ -171,13 +213,6 @@ if __name__ == "__main__":
                              indent=4,
                              separators=(',', ': ',)))
     
-    elif action == "source":
-        '''
-        SOURCE:
-            - Output the line(s) in debian source .list format based on components specified in arguments
-        '''
-        pass
-    
     elif action == "add":
         # Adds a component to an existing repo.
         pass
@@ -189,7 +224,41 @@ if __name__ == "__main__":
         print(format_deb_line(socket.gethostbyname(socket.gethostname()),
                               args.toplevel, args.platforms, args.restrictions,
                               https=args.https))
+        
+    elif action == "gpg":
+        # Here we might want to automatically create some work (fibinocchi sequence?)
+        # while generating the key.
+        # This generates the key how Debian would prefer it to be generated
+        gen_gpg_key()
+        
+    elif action == "help":
+        print()
+        print("apt-repo program help")
+        print("=====================")
+        print()
+        print("apt-repo is a repository-focused script that allows automation of admin tasks.")
+        print("The following are actions that can be performed:")
+        print()
+        print("create: Creates the repository directory structure and all the necessary files")
+        print("        in it to enable the user to connect to, and subsequently update from, an")
+        print("        empty repository.")
+        print("        Relevant Options:")
+        print("        \to --directory (Specify where to create repository structure")
+        print("        \to --desc (Set the Release file description")
+        print("        \to --name (Sets the Release account name of the repository)")
+        print("        \to --email (Sets the Release email account, usually maintainers'")
+        print("        \to --architecture (Create directories for the specified architectures")
+        print("        \to --toplevel (Top level directory is the suffix to the deb sources.list")
+        print("        \t              line, defaults to 'debian')")
+        print("        \to --platforms (Create directories that separate packages based on stability)")
+        print("        \to --restriction (Create directories for free/non-free/contrib packages.")
+        print()
+        print("delete: Removes the repository directory structure completely")
+        print("        Relevant Options:")
+        print("        \to --directory (Specify where repository is to remove")
+        print()
             
 
     # <-- Action has been performed, if successful we exit with 0 status
     sys.exit(0)
+    

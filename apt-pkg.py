@@ -34,6 +34,9 @@ def ini_section_header(properties_file, header_name):
     yield '[{}]\n'.format(header_name)
     for line in properties_file:
         yield line
+        
+        
+# NOTE: Anytime a package is updated, it must update the gpg file
 
 if __name__ == "__main__":
 
