@@ -23,6 +23,7 @@ import argparse, sys, os, platform
 import datetime
 import platform
 import logging
+import socket
 
 
 from subprocess import PIPE, Popen
@@ -33,7 +34,7 @@ def ini_section_header(properties_file, header_name):
     for line in properties_file:
         yield line
         
-ACTIONS = ["create", "delete", "info", "add", "remove", "source"]
+ACTIONS = ["create", "delete", "info", "add", "remove", "source", "export"]
 
 if __name__ == "__main__":
     '''
@@ -41,6 +42,10 @@ if __name__ == "__main__":
         --secure (full secure apt repository, auto configure gpg)
         
     '''
+    
+    def format_deb_line(ip, toplevel, platforms, restrictions, https=False):
+        return "deb http{}://{}/{} {} {}".format("s" if https else "", ip, toplevel,
+                                                 ' '.join(platforms), ' '.join(restrictions))
 
     # --> Start Command Line Argument parsing
     parser = argparse.ArgumentParser(description="Debian Repository Management Tool")
@@ -150,13 +155,13 @@ if __name__ == "__main__":
         '''
         import json
         if os.path.exists(path):
-            import socket
+            
             # TODO: valid={check if repo structure works}
             print(json.dumps(dict(ipaddr=socket.gethostbyname(socket.gethostname()),
                                   filepath=os.path.abspath(path),
-                                  apt="deb http{}://{}/{} {} {}".format("s" if args.https else "",
-                                      socket.gethostbyname(socket.gethostname()), args.toplevel, ' '.join(args.platforms),
-                                      ' '.join(args.restrictions)),
+                                  apt=format_deb_line(socket.gethostbyname(socket.gethostname()),
+                                                      args.toplevel, args.platforms, args.restrictions,
+                                                      https=args.https),
                                   architectures=args.architecture,
                                   platforms=args.platforms,
                                   contribs=args.restrictions,
@@ -179,6 +184,11 @@ if __name__ == "__main__":
     
     elif action == "remove":
         pass
+    
+    elif action == "export":
+        print(format_deb_line(socket.gethostbyname(socket.gethostname()),
+                              args.toplevel, args.platforms, args.restrictions,
+                              https=args.https))
             
 
     # <-- Action has been performed, if successful we exit with 0 status
