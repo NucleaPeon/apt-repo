@@ -66,6 +66,8 @@ if __name__ == "__main__":
                         "Other official platforms are 'experimental' and '*/updates (stable/updates), etc.")
     parser.add_argument('--restrictions', '-r', nargs="*", default=["main"],
                          help="Package Freedom Restrictions (main, contrib, non-free), defaults to 'main'")
+    parser.add_argument('--https', '-s', action="store_true", default=False,
+                        help="Sets the apt address to https instead of http")
     parser.add_argument('--verbosity', '-v', nargs='?', default=0, help="Output program calls to stdout")
     # TODO: --force (on add and remove actions, create and delete (respectively) the components that would 
     #                otherwise make it fail.)
@@ -149,7 +151,16 @@ if __name__ == "__main__":
         import json
         if os.path.exists(path):
             import socket
-            print(json.dumps(dict(ipaddr=socket.gethostbyname(socket.gethostname())), 
+            # TODO: valid={check if repo structure works}
+            print(json.dumps(dict(ipaddr=socket.gethostbyname(socket.gethostname()),
+                                  filepath=os.path.abspath(path),
+                                  apt="deb http{}://{}/{} {} {}".format("s" if args.https else "",
+                                      socket.gethostbyname(socket.gethostname()), args.toplevel, ' '.join(args.platforms),
+                                      ' '.join(args.restrictions)),
+                                  architectures=args.architecture,
+                                  platforms=args.platforms,
+                                  contribs=args.restrictions,
+                                  webserverroot=os.path.abspath(os.path.join(args.directory, args.toplevel))), 
                              default=str,
                              sort_keys=True,
                              indent=4,
