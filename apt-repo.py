@@ -51,8 +51,8 @@ if __name__ == "__main__":
     '''
     
     # --> Declare all methods to reuse code here:
-    def format_deb_line(ip, toplevel, platforms, restrictions, https=False):
-        return "deb http{}://{}/{} {} {}".format("s" if https else "", ip, toplevel,
+    def format_deb_line(ip, platforms, restrictions, https=False):
+        return "deb http{}://{}/ {} {}".format("s" if https else "", ip, 
                                                  ' '.join(platforms), ' '.join(restrictions))
 
     # FIXME: This needs to be moved into the lib folder so it can be shared with
@@ -202,8 +202,7 @@ if __name__ == "__main__":
             print(json.dumps(dict(ipaddr=socket.gethostbyname(socket.gethostname()),
                                   filepath=os.path.abspath(path),
                                   apt=format_deb_line(socket.gethostbyname(socket.gethostname()),
-                                                      args.toplevel, args.platforms, args.restrictions,
-                                                      https=args.https),
+                                                      args.platforms, args.restrictions, https=args.https),
                                   architectures=args.architecture,
                                   platforms=args.platforms,
                                   contribs=args.restrictions,
@@ -222,8 +221,7 @@ if __name__ == "__main__":
     
     elif action == "export":
         print(format_deb_line(socket.gethostbyname(socket.gethostname()),
-                              args.toplevel, args.platforms, args.restrictions,
-                              https=args.https))
+                              args.platforms, args.restrictions, https=args.https))
         
     elif action == "gpg":
         # Here we might want to automatically create some work (fibinocchi sequence?)
@@ -256,6 +254,9 @@ if __name__ == "__main__":
         print("delete: Removes the repository directory structure completely")
         print("        Relevant Options:")
         print("        \to --directory (Specify where repository is to remove")
+        print()
+        print("gpg:    Generates the gpg key. For now, let's assume the user can create their own,")
+        print("        as entropy and environment are important for the creation of a good key.")
         print()
             
 

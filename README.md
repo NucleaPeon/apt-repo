@@ -13,3 +13,11 @@ This is not an official apt software release. It is a custom add-on. If
 the folks at Debian decide to use apt-repo for their work, I will rename
 this project.
 
+
+Pre-requisites
+==============
+
+Generate your gpg key using
+    gpg --gen-key
+
+Select RSA and a minimum of 2048 for encryption.
