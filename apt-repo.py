@@ -41,6 +41,15 @@ def ini_section_header(properties_file, header_name):
     for line in properties_file:
         yield line
         
+def repo_path_validate(base, platforms, restrictions):
+    # Returns True if valid, False otherwise
+    # Check existence of paths
+    all_paths = []
+    for p in platforms:
+        all_paths.extend([os.path.join(base, p, r) for r in restrictions])
+        
+    return not False in [os.path.exists(path) for path in all_paths]
+        
 ACTIONS = ["create", "delete", "info", "add", "remove", "export", "gpg", "help"]
 
 if __name__ == "__main__":
@@ -61,7 +70,7 @@ if __name__ == "__main__":
     def md5sum_file(path, filename):
         f = os.path.join(path, filename)
         if not os.path.exists(f):
-            raise Exception("Attmepted to generate hash of file {}, file not found".format(f))
+            raise Exception("Attempted to generate hash of file {}, file not found".format(f))
         
         md5 = hashlib.md5()
         with open(f, 'r') as openf:
@@ -206,6 +215,7 @@ if __name__ == "__main__":
                                   architectures=args.architecture,
                                   platforms=args.platforms,
                                   contribs=args.restrictions,
+                                  valid=repo_path_validate(path, args.platforms, args.restrictions),
                                   webserverroot=os.path.abspath(os.path.join(args.directory, args.toplevel))), 
                              default=str,
                              sort_keys=True,
