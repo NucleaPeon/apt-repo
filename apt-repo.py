@@ -31,7 +31,7 @@ import platform
 import logging
 import socket
 import hashlib
-
+import shutil
 
 from subprocess import PIPE, Popen
 from __init__ import arch_dir, get_arch
@@ -43,14 +43,16 @@ def ini_section_header(properties_file, header_name):
         
 def repo_path_validate(base, platforms, restrictions):
     # Returns True if valid, False otherwise
-    # Check existence of paths
+    return not False in repo_paths(base, platforms, restrictions)
+
+def repo_paths(base, platforms, restrictions):
     all_paths = []
     for p in platforms:
         all_paths.extend([os.path.join(base, p, r) for r in restrictions])
+    
+    return all_paths
         
-    return not False in [os.path.exists(path) for path in all_paths]
-        
-ACTIONS = ["create", "delete", "info", "add", "remove", "export", "gpg", "help"]
+ACTIONS = ["create", "delete", "info", "add", "remove", "export", "gpg", "haspkg", "help"]
 
 if __name__ == "__main__":
     '''
@@ -90,7 +92,7 @@ if __name__ == "__main__":
 
     # --> Start Command Line Argument parsing
     parser = argparse.ArgumentParser(description="Debian Repository Management Tool")
-    parser.add_argument('action',
+    parser.add_argument('action', nargs='*',
                        help="one of: create, delete, status, add, remove, info")
     parser.add_argument('--desc', nargs='?', default="(description goes here)", 
                         help="Set a repository description")
@@ -125,13 +127,14 @@ if __name__ == "__main__":
     nix_platform = platform.linux_distribution() # (name, id,)
     
     # Catches all invalid actions and exists the program so we can avoid validation later.
-    action = args.action.lower()
+    action = args.action[0].lower()
     if not action in ACTIONS:
         sys.stderr.write("Invalid action: {}.\nAvailable actions: {}\n".format(
             action, ', '.join(ACTIONS)))
         sys.exit(1)
         
     path = os.path.join(args.directory, args.toplevel, 'dists')
+    getlist = lambda: repo_paths(path, args.platforms, args.restrictions)
     
     if action == "create":
         print("::Create\n")
@@ -186,7 +189,7 @@ if __name__ == "__main__":
     elif action == "delete":
         print("::Delete\n")
         umask = os.umask(0o022)
-        import shutil
+        
         print("\tRemoving {}".format(args.directory))
         if os.path.exists(args.directory):
             shutil.rmtree(os.path.join(args.directory))
@@ -206,7 +209,6 @@ if __name__ == "__main__":
         '''
         import json
         if os.path.exists(path):
-            
             # TODO: valid={check if repo structure works}
             print(json.dumps(dict(ipaddr=socket.gethostbyname(socket.gethostname()),
                                   filepath=os.path.abspath(path),
@@ -224,14 +226,40 @@ if __name__ == "__main__":
     
     elif action == "add":
         # Adds a component to an existing repo.
-        pass
+        packages = args.action[1:]
+        if packages:
+            for p in packages:
+                if len(p) > 4 and p[-4:] == ".deb":
+                    for rpath in getlist():
+                        # Sanitize Package
+                        newp = p.split(os.sep)[-1]
+                        for arch in args.architecture:
+                            shutil.copyfile(p, os.path.join(rpath, arch_dir(arch), newp)) # No metadata copied, need to chown and chmod?
+                            print("Copying {} to {}".format(p, os.path.join(rpath, arch_dir(arch), newp)))
     
     elif action == "remove":
         pass
+        
+    elif action == "haspkg":
+        # Initialize search results
+        pkgs = {}
+        pkglist = []
+        for x in getlist():
+            for a in args.architecture:
+                pkgdir = os.path.join(x, arch_dir(a))
+                pkglist = [ f for f in os.listdir(pkgdir) if os.path.isfile(os.path.join(pkgdir, f)) and ".deb" in f ]
+                for pkg in args.action[1:]:
+                    pkg = pkg.replace('.deb', '')
+                    pkgs[pkgdir] = [p if pkg in p else None for p in pkglist]
+                
+        print(pkgs)
     
     elif action == "export":
-        print(format_deb_line(socket.gethostbyname(socket.gethostname()),
-                              args.platforms, args.restrictions, https=args.https))
+        for p in args.platforms:
+            print(format_deb_line(socket.gethostbyname(socket.gethostname()),
+                                  [p], args.restrictions, https=args.https))
+            
+        # TODO: Source repository names
         
     elif action == "gpg":
         # Here we might want to automatically create some work (fibinocchi sequence?)
