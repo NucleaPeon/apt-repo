@@ -33,6 +33,7 @@ import socket
 import hashlib
 import shutil
 import json
+from lib.scanpackages import Packages_gz
 
 from subprocess import PIPE, Popen
 from __init__ import arch_dir, get_arch
@@ -211,12 +212,20 @@ if __name__ == "__main__":
         
         if os.path.exists(path):
             # TODO: valid={check if repo structure works}
+            pkgs = {}
+            for x in getlist():
+                for a in args.architecture:
+                    pkgdir = os.path.join(x, arch_dir(a))
+                    pkgs[pkgdir] = [ f for f in os.listdir(pkgdir) if os.path.isfile(os.path.join(pkgdir, f)) and ".deb" in f ]
+                    
+            print(pkgs)
             print(json.dumps(dict(ipaddr=socket.gethostbyname(socket.gethostname()),
                                   filepath=os.path.abspath(path),
                                   apt=format_deb_line(socket.gethostbyname(socket.gethostname()),
                                                       args.platforms, args.restrictions, https=args.https),
                                   architectures=args.architecture,
                                   platforms=args.platforms,
+                                  packagecount={r: len(pkgs[r]) for r in pkgs},
                                   contribs=args.restrictions,
                                   valid=repo_path_validate(path, args.platforms, args.restrictions),
                                   webserverroot=os.path.abspath(os.path.join(args.directory, args.toplevel))), 
@@ -228,6 +237,7 @@ if __name__ == "__main__":
     elif action == "add":
         # Adds a component to an existing repo.
         packages = args.action[1:]
+        modifiedrepos = []
         if packages:
             for p in packages:
                 if len(p) > 4 and p[-4:] == ".deb":
@@ -235,14 +245,23 @@ if __name__ == "__main__":
                         # Seperate package from path
                         newp = p.split(os.sep)[-1]
                         for arch in args.architecture:
-                            shutil.copyfile(p, os.path.join(rpath, arch_dir(arch), newp)) # No metadata copied, need to chown and chmod?
+                            rpath = os.path.join(rpath, arch_dir(arch))
+                            shutil.copyfile(p, os.path.join(rpath, newp)) # No metadata copied, need to chown and chmod?
+                            if not rpath in modifiedrepos:
+                                modifiedrepos.append(rpath) 
                             print("Copying {} to {}".format(p, os.path.join(rpath, arch_dir(arch), newp)))
+                            
+        if modifiedrepos:
+            for mr in modifiedrepos:
+                Packages_gz(mr)
     
     elif action == "remove":
+        modifiedrepos = []
         packages = args.action[1:]
         if packages:
             for rpath in getlist():
                 for a in args.architecture:
+                    modified = False
                     files = [ f for f in os.listdir(os.path.join(rpath, arch_dir(a))) if f[-4:] == ".deb" ]
                     for f in files:
                         # we compare the debian package name, omit the version and arch string which should be standard.
@@ -250,14 +269,20 @@ if __name__ == "__main__":
                         splt = f.split('-')
                         for foundpkg in filter(lambda x: '-'.join(splt[0:len(splt)-1]) == x, packages):
                             os.remove(os.path.join(rpath, arch_dir(a), f))
+                            modified = True
                             print("Found {}, Removing {} from {}".format(foundpkg, f, os.path.join(rpath, arch_dir(a))))
                             
                         for foundpkg in filter(lambda x: x == f, packages):
                             os.remove(os.path.join(rpath, arch_dir(a), f))
+                            modified = True
                             print("Removing {}".format(os.path.join(rpath, arch_dir(a), foundpkg)))
                             
-                        
-                        
+                    if modified:
+                        modifiedrepos.append(rpath)
+                            
+        if modifiedrepos:
+            for mr in modifiedrepos:
+                Packages_gz(mr)
         
     elif action == "haspkg":
         # Initialize search results
