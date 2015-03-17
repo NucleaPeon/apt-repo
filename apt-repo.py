@@ -32,6 +32,7 @@ import logging
 import socket
 import hashlib
 import shutil
+import json
 
 from subprocess import PIPE, Popen
 from __init__ import arch_dir, get_arch
@@ -207,7 +208,7 @@ if __name__ == "__main__":
             - List total stats of each repo section
             - List the ip address of the repo, list the deb line for the sources file
         '''
-        import json
+        
         if os.path.exists(path):
             # TODO: valid={check if repo structure works}
             print(json.dumps(dict(ipaddr=socket.gethostbyname(socket.gethostname()),
@@ -231,28 +232,53 @@ if __name__ == "__main__":
             for p in packages:
                 if len(p) > 4 and p[-4:] == ".deb":
                     for rpath in getlist():
-                        # Sanitize Package
+                        # Seperate package from path
                         newp = p.split(os.sep)[-1]
                         for arch in args.architecture:
                             shutil.copyfile(p, os.path.join(rpath, arch_dir(arch), newp)) # No metadata copied, need to chown and chmod?
                             print("Copying {} to {}".format(p, os.path.join(rpath, arch_dir(arch), newp)))
     
     elif action == "remove":
-        pass
+        packages = args.action[1:]
+        if packages:
+            for rpath in getlist():
+                for a in args.architecture:
+                    files = [ f for f in os.listdir(os.path.join(rpath, arch_dir(a))) if f[-4:] == ".deb" ]
+                    for f in files:
+                        # we compare the debian package name, omit the version and arch string which should be standard.
+                        # We also check for verbatim comparisons
+                        splt = f.split('-')
+                        for foundpkg in filter(lambda x: '-'.join(splt[0:len(splt)-1]) == x, packages):
+                            os.remove(os.path.join(rpath, arch_dir(a), f))
+                            print("Found {}, Removing {} from {}".format(foundpkg, f, os.path.join(rpath, arch_dir(a))))
+                            
+                        for foundpkg in filter(lambda x: x == f, packages):
+                            os.remove(os.path.join(rpath, arch_dir(a), f))
+                            print("Removing {}".format(os.path.join(rpath, arch_dir(a), foundpkg)))
+                            
+                        
+                        
         
     elif action == "haspkg":
         # Initialize search results
+        # NOTE: This complex code can be eliminated with the introduction of a database
         pkgs = {}
         pkglist = []
         for x in getlist():
             for a in args.architecture:
                 pkgdir = os.path.join(x, arch_dir(a))
+                pkgs[pkgdir] = []
                 pkglist = [ f for f in os.listdir(pkgdir) if os.path.isfile(os.path.join(pkgdir, f)) and ".deb" in f ]
                 for pkg in args.action[1:]:
-                    pkg = pkg.replace('.deb', '')
-                    pkgs[pkgdir] = [p if pkg in p else None for p in pkglist]
+                    for p in pkglist:
+                        pkg = pkg.replace('.deb', '')
+                        # Add package if the string is found in the name and if it isn't already added
+                        if pkg in p:
+                            if not p in pkgs[pkgdir]:
+                                pkgs[pkgdir].append(p)
                 
-        print(pkgs)
+        print(json.dumps(pkgs, default=str, sort_keys=True,
+                             indent=4, separators=(',', ': ',)))
     
     elif action == "export":
         for p in args.platforms:
@@ -295,6 +321,14 @@ if __name__ == "__main__":
         print()
         print("gpg:    Generates the gpg key. For now, let's assume the user can create their own,")
         print("        as entropy and environment are important for the creation of a good key.")
+        print()
+        print("info:   ")
+        print()
+        print("add:   ")
+        print()
+        print("remove:   ")
+        print()
+        print("haspkg:   ")
         print()
             
 
