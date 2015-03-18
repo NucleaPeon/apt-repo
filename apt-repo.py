@@ -134,7 +134,6 @@ if __name__ == "__main__":
     getlist = lambda: repo_paths(path, args.platforms, args.restrictions)
     
     if action == "create":
-        print("::Create\n")
         umask = os.umask(0o022)
         for x in args.restrictions:
             os.makedirs(os.path.join(args.directory, args.toplevel, 'pool', x),
@@ -188,7 +187,6 @@ if __name__ == "__main__":
         print("TODO")
 
     elif action == "delete":
-        print("::Delete\n")
         umask = os.umask(0o022)
         
         print("\tRemoving {}".format(args.directory))
