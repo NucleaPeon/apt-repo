@@ -37,11 +37,6 @@ from lib.scanpackages import Packages_gz
 
 from subprocess import PIPE, Popen
 from __init__ import arch_dir, get_arch
-
-def ini_section_header(properties_file, header_name):
-    yield '[{}]\n'.format(header_name)
-    for line in properties_file:
-        yield line
         
 def repo_path_validate(base, platforms, restrictions):
     # Returns True if valid, False otherwise
@@ -54,7 +49,7 @@ def repo_paths(base, platforms, restrictions):
     
     return all_paths
         
-ACTIONS = ["create", "delete", "info", "add", "remove", "export", "gpg", "haspkg", "help"]
+ACTIONS = ["create", "delete", "modify", "info", "add", "remove", "export", "gpg", "haspkg", "help"]
 
 if __name__ == "__main__":
     '''
@@ -95,7 +90,7 @@ if __name__ == "__main__":
     # --> Start Command Line Argument parsing
     parser = argparse.ArgumentParser(description="Debian Repository Management Tool")
     parser.add_argument('action', nargs='*',
-                       help="one of: create, delete, status, add, remove, info")
+                       help="Run 'apt-repo help' to list all the actions")
     parser.add_argument('--desc', nargs='?', default="(description goes here)", 
                         help="Set a repository description")
     parser.add_argument('--directory', '-d', default=os.path.join(os.getcwd(), "foo"), nargs='?',
@@ -116,7 +111,7 @@ if __name__ == "__main__":
                         "Other official platforms are 'experimental' and '*/updates (stable/updates), etc.")
     parser.add_argument('--restrictions', '-r', nargs="*", default=["main"],
                          help="Package Freedom Restrictions (main, contrib, non-free), defaults to 'main'")
-    parser.add_argument('--https', '-s', action="store_true", default=False,
+    parser.add_argument('--https', '-s', action="store_true", default=False, # FIXME: This should also take the server key as param to deploy
                         help="Sets the apt address to https instead of http")
     parser.add_argument('--verbosity', '-v', nargs='?', default=0, help="Output program calls to stdout")
     # TODO: --force (on add and remove actions, create and delete (respectively) the components that would 
@@ -187,6 +182,10 @@ if __name__ == "__main__":
                         f.write("Component: {}\n".format(y))
                         f.write("Architecture: {}\n".format(get_arch(z)))
                         #f.write("Version: 0.1\n")
+                        
+    elif action == "modify":
+        # Change attributes in Release files or add/remove arches, platforms or restrictive components
+        print("TODO")
 
     elif action == "delete":
         print("::Delete\n")
@@ -327,25 +326,44 @@ if __name__ == "__main__":
         print("The following are actions that can be performed:")
         print()
         print("create: Creates the repository directory structure and all the necessary files")
-        print("        in it to enable the user to connect to, and subsequently update from, an")
-        print("        empty repository.")
+        print("        in it to enable the user to connect to, and subsequently update from,")
+        print("        an empty repository.")
+        print()
         print("        Relevant Options:")
         print("        \to --directory (Specify where to create repository structure")
         print("        \to --desc (Set the Release file description")
         print("        \to --name (Sets the Release account name of the repository)")
         print("        \to --email (Sets the Release email account, usually maintainers'")
-        print("        \to --architecture (Create directories for the specified architectures")
-        print("        \to --toplevel (Top level directory is the suffix to the deb sources.list")
+        print("        \to --architecture (Create directories for the specified ")
+        print("                            architectures")
+        print("        \to --toplevel (Top level directory is the suffix to the deb")
+        print("                        sources.list")
         print("        \t              line, defaults to 'debian')")
-        print("        \to --platforms (Create directories that separate packages based on stability)")
-        print("        \to --restriction (Create directories for free/non-free/contrib packages.")
+        print("        \to --platforms (Create directories that separate packages")
+        print("                         based on stability)")
+        print("        \to --restriction (Create directories for free/non-free/")
+        print("                           contrib packages.")
         print()
         print("delete: Removes the repository directory structure completely")
         print("        Relevant Options:")
-        print("        \to --directory (Specify where repository is to remove")
         print()
-        print("gpg:    Generates the gpg key. For now, let's assume the user can create their own,")
-        print("        as entropy and environment are important for the creation of a good key.")
+        print("        \to --directory (Specify where repository is to remove)")
+        print()
+        print("modify: Adds or removes certain components to the repository, such as")
+        print("        architectures, platforms, and package restrictions (non-free)")
+        print()
+        print("        \to --architecure")
+        print("        \to --platforms")
+        print("        \to --restrictions")
+        print("        \to --name")
+        print("        \to --email")
+        print("        \to --desc")
+        print("        \to --directory")
+        print("        \to --toplevel")
+        print()
+        print("gpg:    Generates the gpg key. For now, let's assume the user can ")
+        print("        create their own, as entropy and environment are important")
+        print("        for the creation of a good key.")
         print()
         print("info:   ")
         print()
