@@ -154,6 +154,7 @@ if __name__ == "__main__":
     if action == "create":
         for i, pkgname in enumerate(args.action[1:]):
             umask = os.umask(0o022)
+            print("Creating {} Package".format(pkgname))
             os.makedirs(os.path.join(args.directory, pkgname, "DEBIAN"), exist_ok=True)
             write_control_file(pkgname, i)
         
