@@ -18,7 +18,7 @@ import shutil
 from subprocess import PIPE, Popen
 from __init__ import arch_dir, get_arch
 
-ACTIONS = ["create", "delete", "modify", "update", "build", "valid", "info", "licenses", "sections", "help", None]
+ACTIONS = ["create", "delete", "modify", "add", "remove", "update", "build", "valid", "info", "licenses", "sections", "help", None]
 
 SECTIONS = ["admin", "cli-mono", "comm", "database", "debug", "devel", "doc", "editors", "education", "electronics", 
     "embedded", "fonts", "games", "gnome", "gnu-r", "gnustep", "graphics", "hamradio", "haskell", "httpd", "interpreters", "introspection",
@@ -37,6 +37,15 @@ def update_pkg(package_name):
     """
     pass
 
+def has_deb_structure(path):
+    if os.path.exists(path) and os.path.isdir(path):
+        for f in os.listdir(path):
+            if f.upper() == "DEBIAN":
+                testfile = os.path.join(path, f, "control")
+                return os.path.isfile(testfile) and os.path.exists(testfile)
+            
+    return False
+
 def pkg_installed_size(path, append_bytes=None):
     """
     :Description:
@@ -49,8 +58,7 @@ def pkg_installed_size(path, append_bytes=None):
         if os.path.isdir(path):
             files = os.listdir(path)
             for f in files:
-                if f.upper() == "DEBIAN" and os.path.exists(os.path.join(path, f, 'control')) \
-                    and os.path.isfile(os.path.join(path, f, 'control')):
+                if has_deb_structure(os.path.join(path, f, 'control')):
                     continue
                 
                 f = os.path.join(path, f)
@@ -108,6 +116,36 @@ if __name__ == "__main__":
     # <-- End Command Line Argument parsing
     action = args.action[0].lower() if len(args.action) > 0 else None
     
+    def write_control_file(packagename, iteration=0):
+        umask = os.umask(0o022)
+        # Create control file with any data we have to work with:
+        with open(os.path.join(args.directory, packagename, "DEBIAN", "control"), 'w') as cf:
+            cf.write("Package: {}\n".format(packagename))
+            cf.write("Version: {}\n".format(args.set_version))
+            cf.write("Architecture: {}\n".format(args.architecture))
+            cf.write("Section: {}\n".format(args.section if args.section in SECTIONS else "misc"))
+            cf.write("Essential: {}\n".format("yes" if args.essential else "no"))
+            if args.depends:
+                cf.write("Depends: {}\n".format(', '.join(args.depends)))
+                
+            if args.recommends:
+                cf.write("Recommends: {}\n".format(', '.join(args.recommends)))
+            
+            if args.suggests:
+                cf.write("Suggests: {}\n".format(', '.join(args.suggests)))
+            
+            cf.write("Provides: {}\n".format(packagename if not args.provides else args.provides[iteration]))
+            cf.write("Installed-Size: {}\n".format(pkg_installed_size(os.path.join(args.directory, packagename))))
+            if args.homepage:
+                cf.write("Homepage: {}\n".format(args.homepage))
+            cf.write("Package-Type: deb\n")
+            if args.maintainer:
+                cf.write("Maintainer: {}\n".format(args.maintainer))
+                
+            cf.write("Description: {}\n".format(args.desc))
+            for d in args.description:
+                cs.write(" {}\n".format(d))
+    
     if not action in ACTIONS:
         sys.stderr.write("Invalid action: {}.\nAvailable actions: {}\n".format(
             action, ', '.join(ACTIONS)))
@@ -115,44 +153,16 @@ if __name__ == "__main__":
 
     if action == "create":
         for i, pkgname in enumerate(args.action[1:]):
-            print(pkgname)
             umask = os.umask(0o022)
             os.makedirs(os.path.join(args.directory, pkgname, "DEBIAN"), exist_ok=True)
-            # Create control file with any data we have to work with:
-            with open(os.path.join(args.directory, pkgname, "DEBIAN", "control"), 'w') as cf:
-                cf.write("Package: {}\n".format(pkgname))
-                cf.write("Version: {}\n".format(args.set_version))
-                cf.write("Architecture: {}\n".format(args.architecture))
-                cf.write("Section: {}\n".format(args.section if args.section in SECTIONS else "misc"))
-                cf.write("Essential: {}\n".format("yes" if args.essential else "no"))
-                if args.depends:
-                    cf.write("Depends: {}\n".format(', '.join(args.depends)))
-                    
-                if args.recommends:
-                    cf.write("Recommends: {}\n".format(', '.join(args.recommends)))
-                
-                if args.suggests:
-                    cf.write("Suggests: {}\n".format(', '.join(args.suggests)))
-                
-                cf.write("Provides: {}\n".format(pkgname if not args.provides else args.provides[i]))
-                cf.write("Installed-Size: {}\n".format(pkg_installed_size(os.path.join(args.directory, pkgname))))
-                if args.homepage:
-                    cf.write("Homepage: {}\n".format(args.homepage))
-                cf.write("Package-Type: deb\n")
-                if args.maintainer:
-                    cf.write("Maintainer: {}\n".format(args.maintainer))
-                    
-                cf.write("Description: {}\n".format(args.desc))
-                for d in args.description:
-                    cs.write(" {}\n".format(d))
-                    
+            write_control_file(pkgname, i)
         
     elif action == "delete":
         for a in args.action[1:]:
             d = os.path.join(args.directory, a)
             if os.path.exists(d) and os.path.isdir(d):
                 # Do a quick check for package confirmation
-                if os.path.isfile(os.path.join(d, "DEBIAN", "control")):
+                if has_deb_structure(d):
                     umask = os.umask(0o022)
                     print("Removing {} Package".format(d))
                     shutil.rmtree(d)
@@ -165,6 +175,32 @@ if __name__ == "__main__":
                 sys.stderr.write("Error: Failed to remove non-existant directory: {}\n".format(
                     args.directory))
                 sys.exit(2)
+        
+    elif action == "modify":
+        print("TODO: Go through arguments and modify ones that have changed, or rewrite")
+        
+    elif action == "add":
+        if len(args.action) < 2:
+            sys.stderr.write("No files are being added to {}\n".format(
+                args.action[1]))
+            sys.exit(5)
+            
+        copypath = os.path.join(args.directory, args.action[1])
+        if not has_deb_structure(copypath):
+            sys.stderr.write("Not a recognized debian package directory: {}\n".format(
+                args.action[1]))
+            sys.exit(6)
+                
+        for a in args.action[2:]:
+            print("Adding {}".format(a))
+            shutil.copy2(a, copypath)
+            write_control_file(args.action[1])
+    
+    elif action == "remove":
+        print("Remove files")
+        
+    elif action == "update":
+        print("rescan package folder for updates and persist them in relevant files")
         
     elif action == "sections":
         print('\n'.join(SECTIONS))
