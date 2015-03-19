@@ -135,6 +135,7 @@ if __name__ == "__main__":
                     cf.write("Suggests: {}\n".format(', '.join(args.suggests)))
                 
                 cf.write("Provides: {}\n".format(pkgname if not args.provides else args.provides[i]))
+                cf.write("Installed-Size: {}\n".format(pkg_installed_size(os.path.join(args.directory, pkgname))))
                 if args.homepage:
                     cf.write("Homepage: {}\n".format(args.homepage))
                 cf.write("Package-Type: deb\n")
@@ -145,7 +146,6 @@ if __name__ == "__main__":
                 for d in args.description:
                     cs.write(" {}\n".format(d))
                     
-                cf.write("Installed-Size: {}\n".format(pkg_installed_size(os.path.join(args.directory, pkgname))))
         
     elif action == "delete":
         for a in args.action[1:]:
