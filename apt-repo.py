@@ -49,7 +49,7 @@ def repo_paths(base, platforms, restrictions):
     
     return all_paths
         
-ACTIONS = ["create", "delete", "modify", "info", "add", "remove", "export", "gpg", "haspkg", "help"]
+ACTIONS = ["create", "delete", "modify", "info", "add", "remove", "export", "gpg", "haspkg", "help", None]
 
 if __name__ == "__main__":
     '''
@@ -75,7 +75,7 @@ if __name__ == "__main__":
         with open(f, 'r') as openf:
             md5.update(openf.read().encode("utf-8")) # FIXME: Read in at 128 bytes so we don't overload on huge files
         
-        filesize = os.stat(f).st_size
+        filesize = os.path.getsize(f)
         # format and return it
         # FIXME: we may need to buffer and right-align the filesize for readability and standization
         return " {}\t{} {}".format(md5.hexdigest(), filesize, filename) 
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     nix_platform = platform.linux_distribution() # (name, id,)
     
     # Catches all invalid actions and exists the program so we can avoid validation later.
-    action = args.action[0].lower()
+    action = args.action[0].lower() if len(args.action) > 0 else None
     if not action in ACTIONS:
         sys.stderr.write("Invalid action: {}.\nAvailable actions: {}\n".format(
             action, ', '.join(ACTIONS)))
@@ -371,6 +371,9 @@ if __name__ == "__main__":
         print()
         print("haspkg:   ")
         print()
+        
+    elif action is None:
+        sys.exit(3)
             
 
     # <-- Action has been performed, if successful we exit with 0 status
