@@ -150,17 +150,21 @@ if __name__ == "__main__":
     elif action == "delete":
         for a in args.action[1:]:
             d = os.path.join(args.directory, a)
-            is os.path.exists(d) and os.path.isdir(d):
+            if os.path.exists(d) and os.path.isdir(d):
                 # Do a quick check for package confirmation
                 if os.path.isfile(os.path.join(d, "DEBIAN", "control")):
                     umask = os.umask(0o022)
                     print("Removing {} Package".format(d))
                     shutil.rmtree(d)
                     
-        else:
-            sys.stderr.write("Error: Failed to remove non-existant directory: {}\n".format(
-                args.directory))
-            sys.exit(2)
+                else:
+                    print("Not a Debian Package folder")
+                    sys.exit(4)
+                    
+            else:
+                sys.stderr.write("Error: Failed to remove non-existant directory: {}\n".format(
+                    args.directory))
+                sys.exit(2)
         
     elif action == "sections":
         print('\n'.join(SECTIONS))
