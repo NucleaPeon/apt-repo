@@ -73,6 +73,7 @@ def pkg_installed_size(path, append_bytes=None):
     return bytecount
 
 def write_into(src, dst, overwrite=True, symlinks=False):
+    src = os.path.abspath(src)
     toplevel = src.split(os.sep)[-1]
     target = os.path.join(dst, toplevel)
     if not os.path.exists(target):
@@ -82,7 +83,10 @@ def write_into(src, dst, overwrite=True, symlinks=False):
         subtarget = target # Initialize before reuse
         print("Directory {} exists...".format(subtarget))
         for dirpath, dirnames, filenames in os.walk(src):
+            
             for dname in dirnames:
+                print(dirpath)
+                print(toplevel)
                 subtarget = os.path.join(dst, toplevel, dirpath.split(toplevel)[-1].lstrip(os.sep), dname)
                 if not os.path.exists(subtarget):
                     shutil.copytree(os.path.join(dirpath, dname), subtarget, symlinks=symlinks)
