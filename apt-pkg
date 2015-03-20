@@ -272,7 +272,7 @@ if __name__ == "__main__":
             write_into(a, copypath)
             write_control_file(args.action[1])
         
-    elif action.startswith("rem"):
+    elif action.startswith("rem") if not action is None else "":
         if len(args.action) < 2:
             sys.stderr.write("No files specified to be removed from {}\n".format(
                 args.action[1]))
