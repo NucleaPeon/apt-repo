@@ -21,7 +21,8 @@ from subprocess import PIPE, Popen
 from __init__ import arch_dir, get_arch
 from lib.build import build_package
 
-ACTIONS = ["create", "delete", "modify", "add", "remove", "update", "build", "valid", "info", "licenses", "sections", "help", None]
+ACTIONS = ["create", "delete", "modify", "add", "remove", "rem",
+           "update", "build", "valid", "info", "licenses", "sections", "help", None]
 
 SECTIONS = ["admin", "cli-mono", "comm", "database", "debug", "devel", "doc", "editors", "education", "electronics", 
     "embedded", "fonts", "games", "gnome", "gnu-r", "gnustep", "graphics", "hamradio", "haskell", "httpd", "interpreters", "introspection",
@@ -85,8 +86,6 @@ def write_into(src, dst, overwrite=True, symlinks=False):
         for dirpath, dirnames, filenames in os.walk(src):
             
             for dname in dirnames:
-                print(dirpath)
-                print(toplevel)
                 subtarget = os.path.join(dst, toplevel, dirpath.split(toplevel)[-1].lstrip(os.sep), dname)
                 if not os.path.exists(subtarget):
                     shutil.copytree(os.path.join(dirpath, dname), subtarget, symlinks=symlinks)
@@ -108,7 +107,7 @@ def remove_from(dst, name, remove_all=False, find_dirs=True, find_files=True):
     for dirpath, dirnames, filenames in os.walk(dst):
         if find_files:
             if name in filenames:
-                print("Found {} in filenames".format(name))
+                print("Removing file {}".format(name))
                 rem = os.path.join(dirpath, name)
                 os.remove(rem)
                 retval = True
@@ -120,7 +119,7 @@ def remove_from(dst, name, remove_all=False, find_dirs=True, find_files=True):
             
         if find_dirs:
             if name in dirnames:
-                print("Found {} in dirnames".format(name))
+                print("Removing directory {}".format(name))
                 rem = os.path.join(dirpath, name)
                 shutil.rmtree(rem)
                 retval = True
@@ -273,7 +272,7 @@ if __name__ == "__main__":
             write_into(a, copypath)
             write_control_file(args.action[1])
         
-    elif action == "remove":
+    elif action.startswith("rem"):
         if len(args.action) < 2:
             sys.stderr.write("No files specified to be removed from {}\n".format(
                 args.action[1]))
@@ -281,7 +280,7 @@ if __name__ == "__main__":
         
         for a in args.action[2:]:
             print("removing {} from {}".format(a, os.path.join(args.directory, args.action[1])))
-            result = remove_from(os.path.join(args.directory, args.action[1]), a)
+            result = remove_from(os.path.join(args.directory, args.action[1]), a.strip(os.sep))
             if not result:
                 sys.stderr.write("Warning: Could not find file or directory {} in {}\n".format(a, args.action[1]))
         
