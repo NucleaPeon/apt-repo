@@ -16,7 +16,10 @@ import datetime
 import socket
 import shutil
 from subprocess import PIPE, Popen
+
+# local apt-repo modules
 from __init__ import arch_dir, get_arch
+from lib.build import build_package
 
 ACTIONS = ["create", "delete", "modify", "add", "remove", "update", "build", "valid", "info", "licenses", "sections", "help", None]
 
@@ -199,6 +202,19 @@ if __name__ == "__main__":
     
     elif action == "remove":
         print("Remove files")
+        
+    elif action == "build":
+        for a in args.action[1:]:
+            d = os.path.join(args.directory, a)
+            if has_deb_structure(d):
+                retcode = build_package(d)
+                if not retcode == 0:
+                    sys.stderr.write("Error: Package Building Failed, control file may be bad")
+                    # TODO: more information
+                    sys.exit(7)
+                
+            else:
+                sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
         
     elif action == "update":
         print("rescan package folder for updates and persist them in relevant files")
