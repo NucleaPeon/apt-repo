@@ -21,3 +21,7 @@ Generate your gpg key using
     gpg --gen-key
 
 Select RSA and a minimum of 2048 for encryption.
+
+### TODO
+
+* apt-pkg update

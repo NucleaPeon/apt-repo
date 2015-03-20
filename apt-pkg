@@ -71,7 +71,7 @@ def pkg_installed_size(path, append_bytes=None):
         else:
             bytecount += os.path.getsize(path)
     
-    return bytecount
+    return bytecount if bytecount == 0 else int(bytecount / 1024)
 
 def write_into(src, dst, overwrite=True, symlinks=False):
     src = os.path.abspath(src)
@@ -148,7 +148,7 @@ if __name__ == "__main__":
                         help="Specify directory to host debian package data")
     parser.add_argument('--author', nargs='*', 
                         help='Sets the name of the package author(s). Use format "author name <author@email.com>"')
-    parser.add_argument('--architecture', '-a', nargs=1, default=get_arch(platform.machine()),
+    parser.add_argument('--architecture', '-a', nargs=1, default=[get_arch(platform.machine())],
                         help="Architectures to create repository with; defaults to current arch and source")
     parser.add_argument('--section', nargs=1, default="misc", 
                         help="Specify section for package to be added to. Run 'apt-pkg sections' for list")
@@ -173,10 +173,10 @@ if __name__ == "__main__":
     parser.add_argument('--license', '-l', nargs=1, help="Specify license to associate with package")
     parser.add_argument('--set-version', nargs=1, help="Set the version string for all packages to this",
                         default="0.1")
-    parser.add_argument('--desc', nargs=1, help="Set the description summary")
+    parser.add_argument('--desc', nargs=1, help="Set the description summary", default="No description set")
     parser.add_argument('--description', nargs='*', help="Set the full description, each line should "
                         "be surrounded in quotes and supplied to this parameter. Ex: " 
-                        "--description 'this is a long' 'description of my package'", default=[])
+                        "--description 'this is a long' 'description of my package'", default=["..."])
     parser.add_argument('--follow-symlinks', action="store_true", help="Allow symlinks to be added into packages",
                          default=False)
     parser.add_argument('--overwrite', action="store_false", default=True,
@@ -191,7 +191,7 @@ if __name__ == "__main__":
         with open(os.path.join(args.directory, packagename, "DEBIAN", "control"), 'w') as cf:
             cf.write("Package: {}\n".format(packagename))
             cf.write("Version: {}\n".format(args.set_version))
-            cf.write("Architecture: {}\n".format(args.architecture))
+            cf.write("Architecture: {}\n".format(' '.join(args.architecture)))
             cf.write("Section: {}\n".format(args.section if args.section in SECTIONS else "misc"))
             cf.write("Essential: {}\n".format("yes" if args.essential else "no"))
             if args.depends:
@@ -213,7 +213,7 @@ if __name__ == "__main__":
                 
             cf.write("Description: {}\n".format(args.desc))
             for d in args.description:
-                cs.write(" {}\n".format(d))
+                cf.write(" {}\n".format(d))
     
     if not action in ACTIONS:
         sys.stderr.write("Invalid action: {}.\nAvailable actions: {}\n".format(
@@ -231,7 +231,11 @@ if __name__ == "__main__":
                 write_control_file(pkgname, i)
                 
             else:
-                sys.stderr.write("Warning: Package {} exists. Skipping...\n".format(pkgname))
+                if os.path.isfile(d):
+                    sys.stderr.write("Warning: Filename collision at {}. Skipping...\n".format(pkgname))
+                
+                else:
+                    sys.stderr.write("Warning: Package {} exists...\n".format(pkgname))
                 continue
         
     elif action == "delete":
@@ -298,7 +302,9 @@ if __name__ == "__main__":
                 sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
         
     elif action == "update":
-        print("rescan package folder for updates and persist them in relevant files")
+        for pkgname in args.action[1:]:
+            print("Updating {}...".format(pkgname))
+            write_control_file(pkgname)
         
     elif action == "sections":
         print('\n'.join(SECTIONS))
