@@ -210,6 +210,10 @@ if __name__ == "__main__":
         if os.path.exists(path):
             # TODO: valid={check if repo structure works}
             pkgs = {}
+            def repo_dict(repository, pkgs):
+                return {"packagecount": len(pkgs[repository]),
+                        "totalsize": "FIXME"}
+                
             for x in getlist():
                 for a in args.architecture:
                     pkgdir = os.path.join(x, arch_dir(a))
@@ -222,7 +226,7 @@ if __name__ == "__main__":
                                                       args.platforms, args.restrictions, https=args.https),
                                   architectures=args.architecture,
                                   platforms=args.platforms,
-                                  packagecount={r: len(pkgs[r]) for r in pkgs},
+                                  repositories={r: repo_dict(r, pkgs) for r in pkgs},
                                   contribs=args.restrictions,
                                   valid=repo_path_validate(path, args.platforms, args.restrictions),
                                   webserverroot=os.path.abspath(os.path.join(args.directory, args.toplevel))), 
