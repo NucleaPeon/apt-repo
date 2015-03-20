@@ -98,23 +98,25 @@ def write_into(src, dst, overwrite=True, symlinks=False):
                 else:
                     print("File {} exists...".format(subtarget))
                     
-def remove_from(dst, name):
+def remove_from(dst, name, remove_all=False, find_dirs=True, find_files=True):
     name = name.split(os.sep)[-1]
     retval = False
     for dirpath, dirnames, filenames in os.walk(dst):
-        if name in filenames:
-            print("Found {} in filenames".format(name))
-            rem = os.path.join(dirpath, name)
-            os.remove(rem)
-            retval = True
-            break
+        if find_files:
+            if name in filenames:
+                print("Found {} in filenames".format(name))
+                rem = os.path.join(dirpath, name)
+                os.remove(rem)
+                retval = True
+                continue if remove_all else break
             
-        elif name in dirnames:
-            print("Found {} in dirnames".format(name))
-            rem = os.path.join(dirpath, name)
-            shutil.rmtree(rem)
-            retval = True
-            break
+        if find_dirs:
+            if name in dirnames:
+                print("Found {} in dirnames".format(name))
+                rem = os.path.join(dirpath, name)
+                shutil.rmtree(rem)
+                retval = True
+                continue if remove_all else break
             
         else:
             continue
