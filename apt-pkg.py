@@ -108,7 +108,11 @@ def remove_from(dst, name, remove_all=False, find_dirs=True, find_files=True):
                 rem = os.path.join(dirpath, name)
                 os.remove(rem)
                 retval = True
-                continue if remove_all else break
+                if remove_all:
+                    continue
+                
+                else:
+                    break
             
         if find_dirs:
             if name in dirnames:
@@ -116,7 +120,11 @@ def remove_from(dst, name, remove_all=False, find_dirs=True, find_files=True):
                 rem = os.path.join(dirpath, name)
                 shutil.rmtree(rem)
                 retval = True
-                continue if remove_all else break
+                if remove_all:
+                    continue
+                
+                else:
+                    break
             
         else:
             continue
