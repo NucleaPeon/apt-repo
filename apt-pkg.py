@@ -97,7 +97,29 @@ def write_into(src, dst, overwrite=True, symlinks=False):
                     
                 else:
                     print("File {} exists...".format(subtarget))
+                    
+def remove_from(dst, name):
+    name = name.split(os.sep)[-1]
+    retval = False
+    for dirpath, dirnames, filenames in os.walk(dst):
+        if name in filenames:
+            print("Found {} in filenames".format(name))
+            rem = os.path.join(dirpath, name)
+            os.remove(rem)
+            retval = True
+            break
+            
+        elif name in dirnames:
+            print("Found {} in dirnames".format(name))
+            rem = os.path.join(dirpath, name)
+            shutil.rmtree(rem)
+            retval = True
+            break
+            
+        else:
+            continue
         
+    return retval
             
 if __name__ == "__main__":
 
@@ -144,6 +166,8 @@ if __name__ == "__main__":
                         "--description 'this is a long' 'description of my package'", default=[])
     parser.add_argument('--follow-symlinks', action="store_true", help="Allow symlinks to be added into packages",
                          default=False)
+    parser.add_argument('--overwrite', action="store_false", default=True,
+                        help="Overwrite files when adding to a package, enabled by default.")
     args = parser.parse_args()
     # <-- End Command Line Argument parsing
     action = args.action[0].lower() if len(args.action) > 0 else None
@@ -233,22 +257,19 @@ if __name__ == "__main__":
         
         for a in args.action[2:]:
             write_into(a, copypath)
-            """
-            if os.path.exists(cp) and os.path.isdir(a):
-                # copytree cannot overwrite or write into folders...
-                for _src in os.listdir(a):
-                    print("TODO: Check and copy {}".format(_src))
-                    
-                
-            else:
-                print("Copying {} to {}".format(a, cp))
-                shutil.copytree(a, cp) if os.path.isdir(a) else shutil.copy2(a, cp)
-            
             write_control_file(args.action[1])
-        """
         
     elif action == "remove":
-        print("Remove files")
+        if len(args.action) < 2:
+            sys.stderr.write("No files specified to be removed from {}\n".format(
+                args.action[1]))
+            sys.exit(5)
+        
+        for a in args.action[2:]:
+            print("removing {} from {}".format(a, os.path.join(args.directory, args.action[1])))
+            result = remove_from(os.path.join(args.directory, args.action[1]), a)
+            if not result:
+                sys.stderr.write("Warning: Could not find file or directory {} in {}\n".format(a, args.action[1]))
         
     elif action == "build":
         for a in args.action[1:]:
