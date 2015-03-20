@@ -13,6 +13,11 @@ This is not an official apt software release. It is a custom add-on. If
 the folks at Debian decide to use apt-repo for their work, I will rename
 this project.
 
+Getting Started
+===============
+
+* Download the debian binary installer
+* Go through the tutorial for creating your repository and packages: https://github.com/NucleaPeon/apt-repo/wiki/How-to-Set-up-a-New-Repository-with-Packages
 
 Pre-requisites
 ==============
@@ -21,7 +26,3 @@ Generate your gpg key using
     gpg --gen-key
 
 Select RSA and a minimum of 2048 for encryption.
-
-### TODO
-
-* apt-pkg update
