@@ -72,6 +72,33 @@ def pkg_installed_size(path, append_bytes=None):
     
     return bytecount
 
+def write_into(src, dst, overwrite=True, symlinks=False):
+    toplevel = src.split(os.sep)[-1]
+    target = os.path.join(dst, toplevel)
+    if not os.path.exists(target):
+        shutil.copytree(src, target, symlinks=symlinks)
+    
+    else:
+        subtarget = target # Initialize before reuse
+        print("Directory {} exists...".format(subtarget))
+        for dirpath, dirnames, filenames in os.walk(src):
+            for dname in dirnames:
+                subtarget = os.path.join(dst, toplevel, dirpath.split(toplevel)[-1].lstrip(os.sep), dname)
+                if not os.path.exists(subtarget):
+                    shutil.copytree(os.path.join(dirpath, dname), subtarget, symlinks=symlinks)
+                
+                else:
+                    print("Directory {} exists...".format(subtarget))
+            
+            for fname in filenames:
+                subtarget = os.path.join(dst, toplevel, dirpath.split(toplevel)[-1].strip(os.sep), fname)
+                if not os.path.exists(subtarget) or overwrite:
+                    shutil.copy2(os.path.join(dirpath, f), subtarget, follow_symlinks=symlinks)
+                    
+                else:
+                    print("File {} exists...".format(subtarget))
+        
+            
 if __name__ == "__main__":
 
     # --> Start Command Line Argument parsing
@@ -115,6 +142,8 @@ if __name__ == "__main__":
     parser.add_argument('--description', nargs='*', help="Set the full description, each line should "
                         "be surrounded in quotes and supplied to this parameter. Ex: " 
                         "--description 'this is a long' 'description of my package'", default=[])
+    parser.add_argument('--follow-symlinks', action="store_true", help="Allow symlinks to be added into packages",
+                         default=False)
     args = parser.parse_args()
     # <-- End Command Line Argument parsing
     action = args.action[0].lower() if len(args.action) > 0 else None
@@ -157,9 +186,16 @@ if __name__ == "__main__":
     if action == "create":
         for i, pkgname in enumerate(args.action[1:]):
             umask = os.umask(0o022)
-            print("Creating {} Package".format(pkgname))
-            os.makedirs(os.path.join(args.directory, pkgname, "DEBIAN"), exist_ok=True)
-            write_control_file(pkgname, i)
+            d = os.path.join(args.directory, pkgname)
+            
+            if not os.path.exists(d):
+                print("Creating {} Package".format(pkgname))
+                os.makedirs(os.path.join(d, "DEBIAN"), exist_ok=True)
+                write_control_file(pkgname, i)
+                
+            else:
+                sys.stderr.write("Warning: Package {} exists. Skipping...\n".format(pkgname))
+                continue
         
     elif action == "delete":
         for a in args.action[1:]:
@@ -172,11 +208,11 @@ if __name__ == "__main__":
                     shutil.rmtree(d)
                     
                 else:
-                    print("Not a Debian Package folder")
-                    sys.exit(4)
+                    sys.stderr.write("Warning: Not a Debian Package folder\n")
+                    
                     
             else:
-                sys.stderr.write("Error: Failed to remove non-existant directory: {}\n".format(
+                sys.stderr.write("Warning: Directory {} does not exist.\n".format(
                     args.directory))
                 sys.exit(2)
         
@@ -194,12 +230,23 @@ if __name__ == "__main__":
             sys.stderr.write("Not a recognized debian package directory: {}\n".format(
                 args.action[1]))
             sys.exit(6)
-                
+        
         for a in args.action[2:]:
-            print("Adding {}".format(a))
-            shutil.copy2(a, copypath)
+            write_into(a, copypath)
+            """
+            if os.path.exists(cp) and os.path.isdir(a):
+                # copytree cannot overwrite or write into folders...
+                for _src in os.listdir(a):
+                    print("TODO: Check and copy {}".format(_src))
+                    
+                
+            else:
+                print("Copying {} to {}".format(a, cp))
+                shutil.copytree(a, cp) if os.path.isdir(a) else shutil.copy2(a, cp)
+            
             write_control_file(args.action[1])
-    
+        """
+        
     elif action == "remove":
         print("Remove files")
         
