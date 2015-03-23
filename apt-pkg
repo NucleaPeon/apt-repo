@@ -12,7 +12,8 @@ Python-based debian package management system
     
 :TODO:
     - Build package in a temporary build directory so .hidden folders can be
-      stripped out without causing version control systems to break.
+      stripped out without causing version control systems to break. (svn)
+    - 
 """
 
 import argparse, sys, os, platform
@@ -331,8 +332,8 @@ if __name__ == "__main__":
             if has_deb_structure(d):
                 ensure_clean_debian_dir(d)
                 remove_svn_dirs(d)
-                write_control_file(pkgname)
-                print("Updating {}...".format(pkgname))
+                write_control_file(d)
+                print("Updating {}...".format(d))
                 
             else:
                 sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
