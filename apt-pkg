@@ -29,6 +29,8 @@ SECTIONS = ["admin", "cli-mono", "comm", "database", "debug", "devel", "doc", "e
     "java", "kde", "kernel", "libdevel", "libs", "lisp", "localization", "mail", "math", "metapackages", "misc", "net",
     "news", "ocaml", "oldlibs", "otherosfs", "perl", "php", "python", "ruby", "science", "shells", "sound", "tasks",
     "tex", "text", "utils", "vcs", "video", "web", "x11", "xfce", "zope"]
+
+DEBIAN_FILES = ['postinst', 'postrm', 'preinst', 'prerm', 'control']
 # NOTE: Anytime a package is updated, it must update the gpg file
 
 def update_pkg(package_name):
@@ -40,6 +42,16 @@ def update_pkg(package_name):
         - Re-validate package data
     """
     pass
+
+def ensure_clean_debian_dir(path):
+    if has_deb_structure(path):
+        files = os.listdir(os.path.join(path, 'DEBIAN'))
+        toremove = None
+        for f in files:
+            if not f in DEBIAN_FILES:
+                toremove = os.path.join(path, 'DEBIAN', f)
+                os.remove(toremove) if os.path.isfile(toremove) else shutil.rmtree(toremove)
+                sys.stderr.write("Important: Removed {} from DEBIAN folder\n".format(f))
 
 def has_deb_structure(path):
     if os.path.exists(path) and os.path.isdir(path):
@@ -292,9 +304,10 @@ if __name__ == "__main__":
         for a in args.action[1:]:
             d = os.path.join(args.directory, a)
             if has_deb_structure(d):
+                ensure_clean_debian_dir(d)
                 retcode = build_package(d)
                 if not retcode == 0:
-                    sys.stderr.write("Error: Package Building Failed, control file may be bad")
+                    sys.stderr.write("Error: Package Building Failed, control file may be bad\n")
                     # TODO: more information
                     sys.exit(7)
                 
@@ -302,9 +315,15 @@ if __name__ == "__main__":
                 sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
         
     elif action == "update":
-        for pkgname in args.action[1:]:
-            print("Updating {}...".format(pkgname))
-            write_control_file(pkgname)
+        for a in args.action[1:]:
+            d = os.path.join(args.directory, a)
+            if has_deb_structure(d):
+                ensure_clean_debian_dir(d)
+                write_control_file(pkgname)
+                print("Updating {}...".format(pkgname))
+                
+            else:
+                sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
         
     elif action == "sections":
         print('\n'.join(SECTIONS))
