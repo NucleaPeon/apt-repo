@@ -72,7 +72,7 @@ def remove_svn_dirs(path):
         for dname in dirnames:
             if dname == ".svn":
                 print(os.path.join(dirpath, dname))
-                shutil.rmtree(os.path.join(dirpath, dname)):
+                shutil.rmtree(os.path.join(dirpath, dname))
 
 def pkg_installed_size(path, append_bytes=None):
     """
