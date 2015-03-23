@@ -9,6 +9,10 @@ Python-based debian package management system
 :Copyright:
     (C) 2015 PeonDevelopments
     (C) 2015 Angry Coders Inc.
+    
+:TODO:
+    - Build package in a temporary build directory so .hidden folders can be
+      stripped out without causing version control systems to break.
 """
 
 import argparse, sys, os, platform
@@ -61,6 +65,13 @@ def has_deb_structure(path):
                 return os.path.isfile(testfile) and os.path.exists(testfile)
             
     return False
+
+def remove_svn_dirs(path):
+    for dirpath, dirnames, filenames in os.walk(path):
+        for dname in dirnames:
+            if dname == ".svn":
+                print(os.path.join(dirpath, dname))
+                #shutil.rmtree(os.path.join(dirpath, dname)):
 
 def pkg_installed_size(path, append_bytes=None):
     """
@@ -319,6 +330,7 @@ if __name__ == "__main__":
             d = os.path.join(args.directory, a)
             if has_deb_structure(d):
                 ensure_clean_debian_dir(d)
+                remove_svn_dirs(d)
                 write_control_file(pkgname)
                 print("Updating {}...".format(pkgname))
                 
