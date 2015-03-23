@@ -72,7 +72,7 @@ def remove_svn_dirs(path):
         for dname in dirnames:
             if dname == ".svn":
                 print(os.path.join(dirpath, dname))
-                #shutil.rmtree(os.path.join(dirpath, dname)):
+                shutil.rmtree(os.path.join(dirpath, dname)):
 
 def pkg_installed_size(path, append_bytes=None):
     """
@@ -332,8 +332,8 @@ if __name__ == "__main__":
             if has_deb_structure(d):
                 ensure_clean_debian_dir(d)
                 remove_svn_dirs(d)
-                write_control_file(d)
-                print("Updating {}...".format(d))
+                write_control_file(a)
+                print("Updating {}...".format(a))
                 
             else:
                 sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
