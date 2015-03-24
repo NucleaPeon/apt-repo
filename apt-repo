@@ -249,12 +249,12 @@ if __name__ == "__main__":
                             rpath = os.path.join(rpath, arch_dir(arch))
                             shutil.copyfile(p, os.path.join(rpath, newp)) # No metadata copied, need to chown and chmod?
                             if not rpath in modifiedrepos:
-                                modifiedrepos.append(rpath) 
+                                modifiedrepos.append(rpath)
                             print("Copying {} to {}".format(p, os.path.join(rpath, arch_dir(arch), newp)))
                             
         if modifiedrepos:
-            for mr in modifiedrepos:
-                Packages_gz(mr)
+            print(os.path.join(args.directory, args.toplevel))
+            Packages_gz(os.path.join(args.directory, args.toplevel))
     
     elif action == "remove":
         modifiedrepos = []

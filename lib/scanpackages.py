@@ -15,9 +15,9 @@
 from subprocess import PIPE, Popen
 import os
 
-def Packages_gz(repository):
+def Packages_gz(webroot):
     # dpkg-scanpackages [repo w/o directory + toplevel] [/dev/null] > [repo w/o directory + toplevel]/Packages.gz
     proc = Popen("dpkg-scanpackages {} /dev/null | gzip -9c > {}{}Packages.gz".format(
-        repository, repository, os.sep), shell=True)
+        webroot, webroot, os.sep), shell=True)
     proc.communicate()
     return proc.returncode

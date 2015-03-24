@@ -13,7 +13,7 @@ Python-based debian package management system
 :TODO:
     - Build package in a temporary build directory so .hidden folders can be
       stripped out without causing version control systems to break. (svn)
-    - 
+    - apt-pkg duplicate [package] [to rename to]
 """
 
 import argparse, sys, os, platform
