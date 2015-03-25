@@ -191,7 +191,7 @@ if __name__ == "__main__":
         umask = os.umask(0o022)
         
         toremove = os.path.join(args.directory, args.toplevel)
-        print("\tRemoving {}".format(toremove)
+        print("\tRemoving {}".format(toremove))
         if os.path.exists(toremove):
             shutil.rmtree(toremove)
             
