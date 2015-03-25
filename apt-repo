@@ -190,13 +190,14 @@ if __name__ == "__main__":
     elif action == "delete":
         umask = os.umask(0o022)
         
-        print("\tRemoving {}".format(args.directory))
-        if os.path.exists(args.directory):
-            shutil.rmtree(os.path.join(args.directory))
+        toremove = os.path.join(args.directory, args.toplevel)
+        print("\tRemoving {}".format(toremove)
+        if os.path.exists(toremove):
+            shutil.rmtree(toremove)
             
         else:
             sys.stderr.write("Error: Failed to remove non-existant directory: {}\n".format(
-                args.directory))
+                toremove))
             sys.exit(2)
         
     elif action == "info":
