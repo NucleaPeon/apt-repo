@@ -47,7 +47,7 @@ def inc_version_file(path, packagename, version=0, by=0.1, prefix='',
         - datever: package-name_[20150131]_arch.deb
     '''
     v = get_version(path, packagename, version)
-    vfile = os.path.join(path, packagename, APTPKG, 'version')        
+    vfile = os.path.join(path, packagename, APTPKG, 'version')
     try:
         v = round(float(v) + float(by), 4)
         
@@ -60,3 +60,13 @@ def inc_version_file(path, packagename, version=0, by=0.1, prefix='',
         
     return v
 
+def deploy_file(fsfile, relpath):
+    vfile = os.path.join(path, packagename, APTPKG, 'files')
+    files = []
+    with open(vfile, 'r') as vf:
+        files.extend(vf.readLines())
+        
+    
+        
+    with open(vfile, 'r') as vf:
+        vf.write('\n'.join(files))

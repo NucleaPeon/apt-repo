@@ -28,9 +28,10 @@ from __init__ import arch_dir, get_arch
 from lib.build import build_package
 from lib.conf import configuration_options
 import lib.pkg 
+import lib.db
 
 
-ACTIONS = ["create", "delete", "modify", "add", "remove", "rem",
+ACTIONS = ["create", "delete", "modify", "add", "remove", "rem", 
            "update", "build", "valid", "info", "licenses", "sections", "help", None]
 
 SECTIONS = ["admin", "cli-mono", "comm", "database", "debug", "devel", "doc", "editors", "education", "electronics", 
@@ -202,6 +203,7 @@ if __name__ == "__main__":
     parser.add_argument('--license', '-l', nargs=1, help="Specify license to associate with package", default=None)
     parser.add_argument('--set-version', nargs='?', help="Set the version string for all packages to this",
                         default="0")
+    parser.add_argument('--increment', action='store_true', default=False, help='Increment current version if int or float')
     parser.add_argument('--desc', nargs=1, help="Set the description summary", default="No description set")
     parser.add_argument('--description', nargs='*', help="Set the full description, each line should "
                         "be surrounded in quotes and supplied to this parameter. Ex: " 
@@ -214,7 +216,7 @@ if __name__ == "__main__":
     opts = configuration_options('package')
     # FIXME: need locals and global options mixed, locals override globals
     # Set options with overriding cli arguments:   argument > config file > default value 
-    opts['directory'] = args.directory if not args.directory is None else opts.get('directory', os.getcwd())
+    opts['directory'] = os.path.abspath(args.directory if not args.directory is None else opts.get('directory', os.getcwd()))
     opts['author'] = args.author if args.author else opts.get('author', '').split(',')
     opts['architecture'] = args.architecture if args.architecture else opts.get('architecture', '').split(',')
     opts['section'] = args.section if not args.section is None else opts.get('section', 'misc')
@@ -227,6 +229,7 @@ if __name__ == "__main__":
     opts['license'] = args.license if not args.license is None else opts.get('license', '')
     opts['follow-symlinks'] = args.follow_symlinks # FIXME
     opts['overwrite'] = args.overwrite # FIXME
+    opts['increment'] = args.increment
     
     # <-- End Command Line Argument parsing
     action = args.action[0].lower() if len(args.action) > 0 else None
@@ -272,9 +275,10 @@ if __name__ == "__main__":
             d = os.path.join(opts.get('directory'), pkgname)
             
             if not os.path.exists(d):
-                lib.pkg.init_package(opts['directory'], pkgname, **opts)
-                print("Creating {} Package".format(pkgname))
                 os.makedirs(os.path.join(d, "DEBIAN"), exist_ok=True)
+                lib.db.init_package(opts['directory'], pkgname, **opts)
+                print("Creating {} Package".format(pkgname))
+                
                 write_control_file(pkgname, i)
                 
             else:
@@ -292,7 +296,7 @@ if __name__ == "__main__":
                 # Do a quick check for package confirmation
                 if has_deb_structure(d):
                     umask = os.umask(0o022)
-                    print("Removing {} Package".format(d))
+                    print("Removing {} Package".format(a))
                     shutil.rmtree(d)
                     
                 else:
@@ -308,20 +312,22 @@ if __name__ == "__main__":
         print("TODO: Go through arguments and modify ones that have changed, or rewrite")
         
     elif action == "add":
-        if len(args.action) < 2:
-            sys.stderr.write("No files are being added to {}\n".format(
+        if len(args.action) != 3:
+            sys.stderr.write("Adding paths to package needs [path to file] [rel path in package] arguments: {}\n".format(
                 args.action[1]))
-            sys.exit(5)
-            
+            sys.exit(8)
+        
         copypath = os.path.join(opts.get('directory'), args.action[1])
         if not has_deb_structure(copypath):
             sys.stderr.write("Not a recognized debian package directory: {}\n".format(
                 args.action[1]))
             sys.exit(6)
-        
-        for a in args.action[2:]:
-            write_into(a, copypath)
-            write_control_file(args.action[1])
+            
+        fs_file = args.action[2]
+        rel_path = args.action[3]
+        lib.pkg.deploy_file(fs_file, rel_path)
+        write_into(a, copypath)
+        write_control_file(args.action[1])
         
     elif action.startswith("rem") if not action is None else "":
         if len(args.action) < 2:
@@ -364,6 +370,10 @@ if __name__ == "__main__":
         
     elif action == "sections":
         print('\n'.join(SECTIONS))
+        
+    elif action == "info":
+        for a in args.action[1:]:
+            print(lib.db.read_package(opts.get('directory'), a))
         
     elif action == "licenses":
         print()
