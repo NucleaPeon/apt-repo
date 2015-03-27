@@ -8,6 +8,11 @@ from subprocess import Popen, PIPE
 
 def build_package(path, target="."):
     """
+    TODO:
+        - Copy package into a temporary directory where it can be built either in a 
+          chroot or another folder and have bad hidden files/folders removed
+          (.svn, .apt-pkg) before being built
+        
     :Parameters:
         - target: Either a directory or a filename;
                   If directory: saves package based on control file data (name_ver_arch.deb)

@@ -21,10 +21,14 @@ import datetime
 import socket
 import shutil
 from subprocess import PIPE, Popen
+import configparser
 
 # local apt-repo modules
 from __init__ import arch_dir, get_arch
 from lib.build import build_package
+from lib.conf import configuration_options
+import lib.pkg 
+
 
 ACTIONS = ["create", "delete", "modify", "add", "remove", "rem",
            "update", "build", "valid", "info", "licenses", "sections", "help", None]
@@ -76,12 +80,13 @@ def remove_svn_dirs(path):
 
 def pkg_installed_size(path, append_bytes=None):
     """
+    FIXME: Doesn't calculate size recursively
     :Description:
         Recursive method that aims to compile a total Installed-Size value
         for the resulting control file.
         Performs a quick check to ensure the DEBIAN folder is not included.
     """
-    bytecount = 0
+    bytecount = 0 if append_bytes is None else append_bytes
     if os.path.exists(path):        
         if os.path.isdir(path):
             files = os.listdir(path)
@@ -90,7 +95,7 @@ def pkg_installed_size(path, append_bytes=None):
                     continue
                 
                 f = os.path.join(path, f)
-                bytecount += pkg_installed_size(f) if os.path.isdir(f) else os.path.getsize(f)
+                bytecount += pkg_installed_size(f, bytecount) if os.path.isdir(f) else os.path.getsize(f)
             
         else:
             bytecount += os.path.getsize(path)
@@ -168,22 +173,22 @@ if __name__ == "__main__":
     # option (-p) to each package command
     parser.add_argument('action', nargs="*",
                        help="Perform an action: create, delete, modify, update, build, valid, info, licenses, help")
-    parser.add_argument('--directory', '-d', nargs=1, default=os.getcwd(),
+    parser.add_argument('--directory', '-d', nargs=1, default=None,
                         help="Specify directory to host debian package data")
-    parser.add_argument('--author', nargs='*', 
+    parser.add_argument('--author', nargs='*', default=None,
                         help='Sets the name of the package author(s). Use format "author name <author@email.com>"')
-    parser.add_argument('--architecture', '-a', nargs=1, default=[get_arch(platform.machine())],
+    parser.add_argument('--architecture', '-a', nargs='*', default=[get_arch(platform.machine())],
                         help="Architectures to create repository with; defaults to current arch and source")
-    parser.add_argument('--section', nargs=1, default="misc", 
+    parser.add_argument('--section', nargs=1, default=None,
                         help="Specify section for package to be added to. Run 'apt-pkg sections' for list")
-    parser.add_argument('--essential', action="store_true", default=False,
+    parser.add_argument('--essential', action="store_true", default=None,
                         help="Specify this arg to make the package essential. Default is False.")
     parser.add_argument('--depends', nargs="*", help="List package names that this package depends on.",
-                        default=[])
+                        default=None)
     parser.add_argument('--recommends', nargs="*", help="List package names that this package recommends.",
-                        default=[])
+                        default=None)
     parser.add_argument('--suggests', nargs="*", help="List package names that this package recommends.",
-                        default=[])
+                        default=None)
     parser.add_argument('--provides', nargs="*", 
                         help="If you set the provides for a package list, its size must equal the number " 
                         "of package names supplied to create action.")
@@ -192,11 +197,11 @@ if __name__ == "__main__":
                         "of package names supplied to create action. use empty quotes for packages where " 
                         "this doesn't apply")
     parser.add_argument('--maintainer', nargs=1, help="Set the maintainer(s) for all packages in format: " 
-                        "'full name <email@this.com>'", default=socket.gethostname())
-    parser.add_argument('--homepage', nargs=1, help="Set the homepage in the control file.")
-    parser.add_argument('--license', '-l', nargs=1, help="Specify license to associate with package")
-    parser.add_argument('--set-version', nargs=1, help="Set the version string for all packages to this",
-                        default="0.1")
+                        "'full name <email@this.com>'", default=None)
+    parser.add_argument('--homepage', nargs=1, help="Set the homepage in the control file.", default=None)
+    parser.add_argument('--license', '-l', nargs=1, help="Specify license to associate with package", default=None)
+    parser.add_argument('--set-version', nargs='?', help="Set the version string for all packages to this",
+                        default="0")
     parser.add_argument('--desc', nargs=1, help="Set the description summary", default="No description set")
     parser.add_argument('--description', nargs='*', help="Set the full description, each line should "
                         "be surrounded in quotes and supplied to this parameter. Ex: " 
@@ -206,34 +211,51 @@ if __name__ == "__main__":
     parser.add_argument('--overwrite', action="store_false", default=True,
                         help="Overwrite files when adding to a package, enabled by default.")
     args = parser.parse_args()
+    opts = configuration_options('package')
+    # FIXME: need locals and global options mixed, locals override globals
+    # Set options with overriding cli arguments:   argument > config file > default value 
+    opts['directory'] = args.directory if not args.directory is None else opts.get('directory', os.getcwd())
+    opts['author'] = args.author if args.author else opts.get('author', '').split(',')
+    opts['architecture'] = args.architecture if args.architecture else opts.get('architecture', '').split(',')
+    opts['section'] = args.section if not args.section is None else opts.get('section', 'misc')
+    opts['essential'] = args.essential if not args.essential is None else opts.get('essential', False)
+    opts['depends'] = args.depends if not args.depends is None else opts.get('depends', '').split(',')
+    opts['suggests'] = args.suggests if not args.suggests is None else opts.get('suggests', '').split(',')
+    opts['recommends'] = args.recommends if not args.recommends is None else opts.get('recommends', '').split(',')
+    opts['maintainer'] = args.maintainer if not args.maintainer is None else opts.get('maintainer', [socket.gethostname()]).split(',')
+    opts['homepage'] = args.homepage if not args.homepage is None else opts.get('homepage', '')
+    opts['license'] = args.license if not args.license is None else opts.get('license', '')
+    opts['follow-symlinks'] = args.follow_symlinks # FIXME
+    opts['overwrite'] = args.overwrite # FIXME
+    
     # <-- End Command Line Argument parsing
     action = args.action[0].lower() if len(args.action) > 0 else None
     
     def write_control_file(packagename, iteration=0):
         umask = os.umask(0o022)
         # Create control file with any data we have to work with:
-        with open(os.path.join(args.directory, packagename, "DEBIAN", "control"), 'w') as cf:
+        with open(os.path.join(opts.get('directory'), packagename, "DEBIAN", "control"), 'w') as cf:
             cf.write("Package: {}\n".format(packagename))
-            cf.write("Version: {}\n".format(args.set_version))
-            cf.write("Architecture: {}\n".format(' '.join(args.architecture)))
-            cf.write("Section: {}\n".format(args.section if args.section in SECTIONS else "misc"))
-            cf.write("Essential: {}\n".format("yes" if args.essential else "no"))
-            if args.depends:
-                cf.write("Depends: {}\n".format(', '.join(args.depends)))
+            cf.write("Version: {}\n".format(lib.pkg.get_version(opts.get('directory'), packagename, version=args.set_version)))
+            cf.write("Architecture: {}\n".format(' '.join(opts.get('architecture'))))
+            cf.write("Section: {}\n".format(opts.get('section') if opts.get('section') in SECTIONS else "misc"))
+            cf.write("Essential: {}\n".format("yes" if opts.get('essential') else "no"))
+            if opts.get('depends'):
+                cf.write("Depends: {}\n".format(', '.join(opts.get('depends'))))
                 
-            if args.recommends:
-                cf.write("Recommends: {}\n".format(', '.join(args.recommends)))
+            if opts.get('recommends'):
+                cf.write("Recommends: {}\n".format(', '.join(opts.get('recommends'))))
             
-            if args.suggests:
-                cf.write("Suggests: {}\n".format(', '.join(args.suggests)))
+            if opts.get('suggests'):
+                cf.write("Suggests: {}\n".format(', '.join(opts.get('suggests'))))
             
-            cf.write("Provides: {}\n".format(packagename if not args.provides else args.provides[iteration]))
-            cf.write("Installed-Size: {}\n".format(pkg_installed_size(os.path.join(args.directory, packagename))))
+            cf.write("Provides: {}\n".format(packagename if not opts.get('provides') else opts.get('provides')[iteration]))
+            cf.write("Installed-Size: {}\n".format(pkg_installed_size(os.path.join(opts.get('directory'), packagename))))
             if args.homepage:
-                cf.write("Homepage: {}\n".format(args.homepage))
+                cf.write("Homepage: {}\n".format(opts.get('homepage')))
             cf.write("Package-Type: deb\n")
-            if args.maintainer:
-                cf.write("Maintainer: {}\n".format(args.maintainer))
+            if opts.get('maintainer'):
+                cf.write("Maintainer: {}\n".format(opts.get('maintainer')))
                 
             cf.write("Description: {}\n".format(args.desc))
             for d in args.description:
@@ -247,9 +269,10 @@ if __name__ == "__main__":
     if action == "create":
         for i, pkgname in enumerate(args.action[1:]):
             umask = os.umask(0o022)
-            d = os.path.join(args.directory, pkgname)
+            d = os.path.join(opts.get('directory'), pkgname)
             
             if not os.path.exists(d):
+                lib.pkg.init_package(opts['directory'], pkgname, **opts)
                 print("Creating {} Package".format(pkgname))
                 os.makedirs(os.path.join(d, "DEBIAN"), exist_ok=True)
                 write_control_file(pkgname, i)
@@ -264,7 +287,7 @@ if __name__ == "__main__":
         
     elif action == "delete":
         for a in args.action[1:]:
-            d = os.path.join(args.directory, a)
+            d = os.path.join(opts.get('directory'), a)
             if os.path.exists(d) and os.path.isdir(d):
                 # Do a quick check for package confirmation
                 if has_deb_structure(d):
@@ -278,7 +301,7 @@ if __name__ == "__main__":
                     
             else:
                 sys.stderr.write("Warning: Directory {} does not exist.\n".format(
-                    args.directory))
+                    opts.get('directory')))
                 sys.exit(2)
         
     elif action == "modify":
@@ -290,7 +313,7 @@ if __name__ == "__main__":
                 args.action[1]))
             sys.exit(5)
             
-        copypath = os.path.join(args.directory, args.action[1])
+        copypath = os.path.join(opts.get('directory'), args.action[1])
         if not has_deb_structure(copypath):
             sys.stderr.write("Not a recognized debian package directory: {}\n".format(
                 args.action[1]))
@@ -307,14 +330,14 @@ if __name__ == "__main__":
             sys.exit(5)
         
         for a in args.action[2:]:
-            print("removing {} from {}".format(a, os.path.join(args.directory, args.action[1])))
-            result = remove_from(os.path.join(args.directory, args.action[1]), a.strip(os.sep))
+            print("removing {} from {}".format(a, os.path.join(opts.get('directory'), args.action[1])))
+            result = remove_from(os.path.join(opts.get('directory'), args.action[1]), a.strip(os.sep))
             if not result:
                 sys.stderr.write("Warning: Could not find file or directory {} in {}\n".format(a, args.action[1]))
         
     elif action == "build":
         for a in args.action[1:]:
-            d = os.path.join(args.directory, a)
+            d = os.path.join(opts.get('directory'), a)
             if has_deb_structure(d):
                 ensure_clean_debian_dir(d)
                 retcode = build_package(d)
@@ -328,10 +351,11 @@ if __name__ == "__main__":
         
     elif action == "update":
         for a in args.action[1:]:
-            d = os.path.join(args.directory, a)
+            d = os.path.join(opts.get('directory'), a)
             if has_deb_structure(d):
                 ensure_clean_debian_dir(d)
                 remove_svn_dirs(d)
+                lib.pkg.inc_version_file(opts.get('directory'), a)
                 write_control_file(a)
                 print("Updating {}...".format(a))
                 

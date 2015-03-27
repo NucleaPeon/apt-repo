@@ -34,6 +34,7 @@ import hashlib
 import shutil
 import json
 from lib.scanpackages import Packages_gz
+from lib.conf import configuration_options
 
 from subprocess import PIPE, Popen
 from __init__ import arch_dir, get_arch
@@ -118,6 +119,8 @@ if __name__ == "__main__":
     #                otherwise make it fail.)
     
     args = parser.parse_args()
+    
+    print(configuration_options('repo'))
     # <-- End Command Line Argument parsing
 
     # --> Start managing cli arguments to produce an Action
