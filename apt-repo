@@ -34,7 +34,6 @@ import hashlib
 import shutil
 import json
 from lib.scanpackages import Packages_gz
-from lib.conf import configuration_options
 
 from subprocess import PIPE, Popen
 from __init__ import arch_dir, get_arch
@@ -60,8 +59,8 @@ if __name__ == "__main__":
     '''
     
     # --> Declare all methods to reuse code here:
-    def format_deb_line(ip, toplevel,  platforms, restrictions, https=False):
-        return "deb http{}://{}/{} {} {}".format("s" if https else "", ip, toplevel,
+    def format_deb_line(ip,  platforms, restrictions, https=False):
+        return "deb http{}://{}/ {} {}".format("s" if https else "", ip, toplevel,
                                                  ' '.join(platforms), ' '.join(restrictions))
 
     # FIXME: This needs to be moved into the lib folder so it can be shared with
@@ -120,7 +119,6 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    print(configuration_options('repo'))
     # <-- End Command Line Argument parsing
 
     # --> Start managing cli arguments to produce an Action
@@ -227,7 +225,7 @@ if __name__ == "__main__":
             print(pkgs)
             print(json.dumps(dict(ipaddr=socket.gethostbyname(socket.gethostname()),
                                   filepath=os.path.abspath(path),
-                                  apt=format_deb_line(socket.gethostbyname(socket.gethostname()), args.toplevel,
+                                  apt=format_deb_line(socket.gethostbyname(socket.gethostname()),
                                                       args.platforms, args.restrictions, https=args.https),
                                   architectures=args.architecture,
                                   platforms=args.platforms,
@@ -315,7 +313,7 @@ if __name__ == "__main__":
     
     elif action == "export":
         for p in args.platforms:
-            print(format_deb_line(socket.gethostbyname(socket.gethostname()), args.toplevel,
+            print(format_deb_line(socket.gethostbyname(socket.gethostname()),
                                   [p], args.restrictions, https=args.https))
             
         # TODO: Source repository names

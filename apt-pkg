@@ -30,7 +30,7 @@ import lib.build
 
 from lib.build import SECTIONS
 
-ACTIONS = ["create", "delete", "modify", "add", "remove", "rem", 
+ACTIONS = ["create", "delete", "modify", "add", "remove", "rem", "clean", 
            "update", "build", "valid", "info", "licenses", "sections", "help", None]
 
 DEBIAN_FILES = ['postinst', 'postrm', 'preinst', 'prerm', 'control']
@@ -80,39 +80,6 @@ def write_into(src, dst, overwrite=True, symlinks=False):
                     
                 else:
                     print("File {} exists...".format(subtarget))
-                    
-def remove_from(dst, name, remove_all=False, find_dirs=True, find_files=True):
-    name = name.split(os.sep)[-1]
-    retval = False
-    for dirpath, dirnames, filenames in os.walk(dst):
-        if find_files:
-            if name in filenames:
-                print("Removing file {}".format(name))
-                rem = os.path.join(dirpath, name)
-                os.remove(rem)
-                retval = True
-                if remove_all:
-                    continue
-                
-                else:
-                    break
-            
-        if find_dirs:
-            if name in dirnames:
-                print("Removing directory {}".format(name))
-                rem = os.path.join(dirpath, name)
-                shutil.rmtree(rem)
-                retval = True
-                if remove_all:
-                    continue
-                
-                else:
-                    break
-            
-        else:
-            continue
-        
-    return retval
             
 if __name__ == "__main__":
 
@@ -152,9 +119,9 @@ if __name__ == "__main__":
     parser.add_argument('--homepage', nargs=1, help="Set the homepage in the control file.", default=None)
     parser.add_argument('--license', '-l', nargs=1, help="Specify license to associate with package", default=None)
     parser.add_argument('--set-version', nargs='?', help="Set the version string for all packages to this",
-                        default="0.1")
+                        default=None)
     parser.add_argument('--increment', action='store_true', default=False, help='Increment current version if int or float')
-    parser.add_argument('--desc', nargs=1, help="Set the description summary", default="No description set")
+    parser.add_argument('--desc', nargs='?', help="Set the description summary", default="No description set")
     parser.add_argument('--description', nargs='*', help="Set the full description, each line should "
                         "be surrounded in quotes and supplied to this parameter. Ex: " 
                         "--description 'this is a long' 'description of my package'", default=["..."])
@@ -170,6 +137,7 @@ if __name__ == "__main__":
     # FIXME: need locals and global options mixed, locals override globals
     # FIXME: No default values. Only if an argument is specified will it be used, else use db, else sane default
     # Set options with overriding cli arguments:   argument > config file > default value 
+    opts['version'] = args.set_version if not args.set_version is None else "0.1"
     opts['provides'] = args.provides if args.provides else [args.action[1]]
     opts['directory'] = os.path.abspath(args.directory if not args.directory is None else opts.get('directory', os.getcwd()))
     opts['author'] = args.author if args.author else opts.get('author', '').split(',')
@@ -254,12 +222,10 @@ if __name__ == "__main__":
                 args.action[1]))
             sys.exit(5)
         
-        for a in args.action[2:]:
-            print("removing {} from {}".format(a, os.path.join(opts.get('directory'), args.action[1])))
-            result = remove_from(os.path.join(opts.get('directory'), args.action[1]), a.strip(os.sep))
-            if not result:
-                sys.stderr.write("Warning: Could not find file or directory {} in {}\n".format(a, args.action[1]))
-        
+        path = os.path.join(opts.get('directory'), args.action[1])
+        if lib.build.apt_repo_pkg(path):
+            lib.db.remove_files(path, *args.action[2:]) 
+    
     elif action == "build":
         for a in args.action[1:]:
             d = os.path.join(opts.get('directory'), a)
@@ -279,8 +245,7 @@ if __name__ == "__main__":
             d = os.path.join(opts.get('directory'), a)
             if lib.build.apt_repo_pkg(d):
                 remove_svn_dirs(d)
-                lib.db.update_package(opts.get('directory'), a, **opts)
-                lib.build.write_control_file(a)
+                lib.db.update_package(os.path.join(opts.get('directory'), a), **opts)
                 print("Updating {}...".format(a))
                 
             else:
@@ -292,6 +257,17 @@ if __name__ == "__main__":
     elif action == "info":
         for a in args.action[1:]:
             print(lib.db.read_package(opts.get('directory'), a))
+        
+    elif action == "clean":
+        # Remove all files from a package
+        for a in args.action[1:]:
+            d = os.path.join(opts.get('directory'), a)
+            if lib.build.apt_repo_pkg(d):
+                lib.db.update_package(os.path.join(opts.get('directory'), a), clear_files=True, **opts)
+                print("Clearing files from {}...".format(a))
+                
+            else:
+                sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
         
     elif action == "licenses":
         print()
