@@ -55,7 +55,7 @@ def build_package(path, pkgname, data={}):
     db = dbmod.read_package(os.path.join(path, pkgname))
     
     tmpdir = create_deb_struct(path, pkgname, data)
-    write_control_file(os.path.join(path, tmpdir), pkgname, **db)
+    write_control_file(tmpdir, pkgname, **db)
     proc = Popen(['dpkg-deb', '--build', os.path.join(path, tmpdir), "."])
     proc.communicate()
     shutil.rmtree(tmpdir)
@@ -73,11 +73,12 @@ def pkg_installed_size(path, append_bytes=None, ignored_files=[".apt-pkg.db"]):
     if os.path.exists(path):        
         if os.path.isdir(path):
             for root, dirs, files in os.walk(path):
-                if root.split(os.sep)[-1].upper() == 'DEBIAN':
+                if root.split(os.sep)[-1] in ['DEBIAN', '__pycache__']:
                     continue
                     
                 for f in files:
-                    bytecount += pkg_installed_size(f, bytecount) if os.path.isdir(f) else os.path.getsize(f)
+                    bytecount += pkg_installed_size(os.path.join(root, f), bytecount) if \
+                        os.path.isdir(f) else os.path.getsize(os.path.join(root, f))
             
         else:
             bytecount += os.path.getsize(path)
@@ -98,7 +99,6 @@ def has_deb_structure(path):
     return False
 
 def write_control_file(path, pkgname, **kwargs):
-    
     umask = os.umask(0o022)
     # TODO Detect if package has a database file and use those
     # Create control file with any data we have to work with:

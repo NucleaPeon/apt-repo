@@ -140,7 +140,7 @@ if __name__ == "__main__":
                         default=None)
     parser.add_argument('--suggests', nargs="*", help="List package names that this package recommends.",
                         default=None)
-    parser.add_argument('--provides', nargs="*", 
+    parser.add_argument('--provides', nargs="*", default=[],
                         help="If you set the provides for a package list, its size must equal the number " 
                         "of package names supplied to create action.")
     parser.add_argument('--built-using', nargs='*',
