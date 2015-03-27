@@ -101,7 +101,7 @@ def pkg_installed_size(path, append_bytes=None):
         else:
             bytecount += os.path.getsize(path)
     
-    return bytecount if bytecount == 0 else int(bytecount / 1024)
+    return bytecount
 
 def write_into(src, dst, overwrite=True, symlinks=False):
     src = os.path.abspath(src)
@@ -202,7 +202,7 @@ if __name__ == "__main__":
     parser.add_argument('--homepage', nargs=1, help="Set the homepage in the control file.", default=None)
     parser.add_argument('--license', '-l', nargs=1, help="Specify license to associate with package", default=None)
     parser.add_argument('--set-version', nargs='?', help="Set the version string for all packages to this",
-                        default="0")
+                        default="0.1")
     parser.add_argument('--increment', action='store_true', default=False, help='Increment current version if int or float')
     parser.add_argument('--desc', nargs=1, help="Set the description summary", default="No description set")
     parser.add_argument('--description', nargs='*', help="Set the full description, each line should "
@@ -215,6 +215,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     opts = configuration_options('package')
     # FIXME: need locals and global options mixed, locals override globals
+    # FIXME: No default values. Only if an argument is specified will it be used, else use db, else sane default
     # Set options with overriding cli arguments:   argument > config file > default value 
     opts['directory'] = os.path.abspath(args.directory if not args.directory is None else opts.get('directory', os.getcwd()))
     opts['author'] = args.author if args.author else opts.get('author', '').split(',')
@@ -236,6 +237,8 @@ if __name__ == "__main__":
     
     def write_control_file(packagename, iteration=0):
         umask = os.umask(0o022)
+        # TODO Detect if package has a database file and use those
+        db = lib.db.read_package(opts.get('directory'), packagename)
         # Create control file with any data we have to work with:
         with open(os.path.join(opts.get('directory'), packagename, "DEBIAN", "control"), 'w') as cf:
             cf.write("Package: {}\n".format(packagename))
@@ -312,7 +315,7 @@ if __name__ == "__main__":
         print("TODO: Go through arguments and modify ones that have changed, or rewrite")
         
     elif action == "add":
-        if len(args.action) != 3:
+        if len(args.action) != 4:
             sys.stderr.write("Adding paths to package needs [path to file] [rel path in package] arguments: {}\n".format(
                 args.action[1]))
             sys.exit(8)
@@ -325,8 +328,7 @@ if __name__ == "__main__":
             
         fs_file = args.action[2]
         rel_path = args.action[3]
-        lib.pkg.deploy_file(fs_file, rel_path)
-        write_into(a, copypath)
+        lib.db.update_package(opts.get('directory'), args.action[1], files={fs_file:rel_path})
         write_control_file(args.action[1])
         
     elif action.startswith("rem") if not action is None else "":
@@ -346,7 +348,8 @@ if __name__ == "__main__":
             d = os.path.join(opts.get('directory'), a)
             if has_deb_structure(d):
                 ensure_clean_debian_dir(d)
-                retcode = build_package(d)
+                retcode = build_package(opts.get('directory'), a, 
+                                        lib.db.read_package(opts.get('directory'), a))
                 if not retcode == 0:
                     sys.stderr.write("Error: Package Building Failed, control file may be bad\n")
                     # TODO: more information
@@ -361,7 +364,7 @@ if __name__ == "__main__":
             if has_deb_structure(d):
                 ensure_clean_debian_dir(d)
                 remove_svn_dirs(d)
-                lib.pkg.inc_version_file(opts.get('directory'), a)
+                lib.db.update_package(opts.get('directory'), a, **opts)
                 write_control_file(a)
                 print("Updating {}...".format(a))
                 
