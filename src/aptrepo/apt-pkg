@@ -23,6 +23,7 @@ import shutil
 from subprocess import PIPE, Popen
 import configparser
 import shelve
+import json
 
 # local apt-repo modules
 from __init__ import arch_dir, get_arch
@@ -100,7 +101,7 @@ if __name__ == "__main__":
     # FIXME: No default values. Only if an argument is specified will it be used, else use db, else sane default
     # Set options with overriding cli arguments:   argument > config file > default value 
     opts['version'] = args.set_version if not args.set_version is None else "0.1"
-    opts['provides'] = args.provides if args.provides else [args.action[1]]
+    opts['provides'] = args.provides if args.provides else [args.action[0].lower()]
     opts['directory'] = os.path.abspath(args.directory if not args.directory is None else opts.get('directory', os.getcwd()))
     opts['author'] = args.author if args.author else opts.get('author', '').split(',')
     opts['architecture'] = args.architecture if args.architecture else opts.get('architecture', '').split(',')
@@ -215,18 +216,25 @@ if __name__ == "__main__":
         print('\n'.join(SECTIONS))
         
     elif action == "info":
-        for a in args.action[1:]:
-            print(lib.db.read_package(opts.get('directory'), a))
+        if lib.db.validate_db(opts.get('directory'), pkgname):
+            print(json.dumps(lib.db.entire_db(opts.get('directory'), pkgname), default=str,
+                             sort_keys=True,
+                             indent=4,
+                             separators=(',', ': ',)))
         
     elif action == "clean":
         # Remove all files from a package
-        for a in args.action[1:]:
-            if lib.db.validate_db(opts.get('directory'), pkgname):
-                lib.db.write_keys(opts.get('directory'), pkgname, **opts)
-                print("Clearing files from {}...".format(a))
-                
-            else:
-                sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
+        if lib.db.validate_db(opts.get('directory'), pkgname):
+            key = "files"
+            files = lib.db.read_keys(opts.get('directory'), pkgname, key)[key]
+            for f in args.action[2:]:
+                if f in files:
+                    del files[f]
+                    
+            lib.db.write_keys(opts.get('directory'), pkgname, files=files)
+            
+        else:
+            sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
         
     elif action == "licenses":
         print()
@@ -293,6 +301,10 @@ if __name__ == "__main__":
         print("update: ")
         print()
         print("build:  ")
+        print()
+        print("clean:  * means remove all files, otherwise remove only files supplied as arguments")
+        print("        from the package.")
+        print()
         print()
         print("valid:  ")
         print()
