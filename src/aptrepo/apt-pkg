@@ -225,13 +225,7 @@ if __name__ == "__main__":
     elif action == "clean":
         # Remove all files from a package
         if lib.db.validate_db(opts.get('directory'), pkgname):
-            key = "files"
-            files = lib.db.read_keys(opts.get('directory'), pkgname, key)[key]
-            for f in args.action[2:]:
-                if f in files:
-                    del files[f]
-                    
-            lib.db.write_keys(opts.get('directory'), pkgname, files=files)
+            lib.db.write_keys(opts.get('directory'), pkgname, files={})
             
         else:
             sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
