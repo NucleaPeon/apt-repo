@@ -1,3 +1,6 @@
+import os
+import shutil
+
 def remove_svn_dirs(path):
     for dirpath, dirnames, filenames in os.walk(path):
         for dname in dirnames:

@@ -92,7 +92,7 @@ def write_control_file(path, pkgname, **kwargs):
     # Create control file with any data we have to work with:
     with open(os.path.join(path, "DEBIAN", "control"), 'w') as cf:
         cf.write("Package: {}\n".format(pkgname))
-        cf.write("Version: {}\n".format(kwargs.get('version', 0.1)))
+        cf.write("Version: {}\n".format(kwargs.get('set_version', 0.1)))
         cf.write("Architecture: {}\n".format(' '.join(kwargs.get('architecture'))))
         cf.write("Section: {}\n".format(kwargs.get('section') if kwargs.get('section') in SECTIONS else "misc"))
         cf.write("Essential: {}\n".format("yes" if kwargs.get('essential') else "no"))

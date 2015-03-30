@@ -16,7 +16,7 @@ Python-based debian package management system
     - apt-pkg duplicate [package] [to rename to]
 """
 
-import argparse, sys, os, platform
+import argparse, sys, os
 import datetime
 import socket
 import shutil
@@ -26,10 +26,11 @@ import shelve
 import json
 
 # local apt-repo modules
-from __init__ import arch_dir, get_arch
+from lib.arch import arch_dir, get_arch, arch
 import lib.db
 import lib.build
 import lib.deploy
+
 
 from lib.build import SECTIONS
 
@@ -51,25 +52,22 @@ if __name__ == "__main__":
     # of commands made (add, remove) in chronological order so users can see their changes
     # before they are made live. Config file options can make this automatic, or supply --publish
     # option (-p) to each package command
-    parser.add_argument('action', nargs="*",
+    parser.add_argument('action', nargs="*", default=None,
                        help="Perform an action: create, delete, modify, update, build, valid, info, licenses, help")
-    parser.add_argument('--directory', '-d', nargs=1, default=None,
+    parser.add_argument('--directory', '-d', nargs=1,
                         help="Specify directory to host debian package data")
-    parser.add_argument('--author', nargs='*', default=None,
+    parser.add_argument('--author', nargs='*',
                         help='Sets the name of the package author(s). Use format "author name <author@email.com>"')
-    parser.add_argument('--architecture', '-a', nargs='*', default=[get_arch(platform.machine())],
+    parser.add_argument('--architecture', '-a', nargs='*',
                         help="Architectures to create repository with; defaults to current arch and source")
-    parser.add_argument('--section', nargs=1, default=None,
+    parser.add_argument('--section', nargs=1,
                         help="Specify section for package to be added to. Run 'apt-pkg sections' for list")
-    parser.add_argument('--essential', action="store_true", default=None,
+    parser.add_argument('--is-essential', action="store_true", default=None,
                         help="Specify this arg to make the package essential. Default is False.")
-    parser.add_argument('--depends', nargs="*", help="List package names that this package depends on.",
-                        default=None)
-    parser.add_argument('--recommends', nargs="*", help="List package names that this package recommends.",
-                        default=None)
-    parser.add_argument('--suggests', nargs="*", help="List package names that this package recommends.",
-                        default=None)
-    parser.add_argument('--provides', nargs="*", default=[],
+    parser.add_argument('--depends', nargs="*", help="List package names that this package depends on.")
+    parser.add_argument('--recommends', nargs="*", help="List package names that this package recommends.")
+    parser.add_argument('--suggests', nargs="*", help="List package names that this package recommends.")
+    parser.add_argument('--provides', nargs="*",
                         help="If you set the provides for a package list, its size must equal the number " 
                         "of package names supplied to create action.")
     parser.add_argument('--built-using', nargs='*',
@@ -77,47 +75,50 @@ if __name__ == "__main__":
                         "of package names supplied to create action. use empty quotes for packages where " 
                         "this doesn't apply")
     parser.add_argument('--maintainer', nargs='*', help="Set the maintainer(s) for all packages in format: " 
-                        "'full name <email@this.com>'", default=None)
-    parser.add_argument('--homepage', nargs=1, help="Set the homepage in the control file.", default=None)
-    parser.add_argument('--license', '-l', nargs=1, help="Specify license to associate with package", default=None)
-    parser.add_argument('--set-version', nargs='?', help="Set the version string for all packages to this",
+                        "'full name <email@this.com>'")
+    parser.add_argument('--homepage', nargs=1, help="Set the homepage in the control file.")
+    parser.add_argument('--license', '-l', nargs=1, help="Specify license to associate with package")
+    parser.add_argument('--set-version', nargs='?', help="Set the version string for all packages to this")
+    parser.add_argument('--increment', action='store_true', help='Increment current version if int or float',
                         default=None)
-    parser.add_argument('--increment', action='store_true', default=False, help='Increment current version if int or float')
-    parser.add_argument('--desc', nargs='?', help="Set the description summary", default="No description set")
+    parser.add_argument('--desc', nargs='?', help="Set the description summary", )
     parser.add_argument('--description', nargs='*', help="Set the full description, each line should "
                         "be surrounded in quotes and supplied to this parameter. Ex: " 
-                        "--description 'this is a long' 'description of my package'", default=["..."])
+                        "--description 'this is a long' 'description of my package'")
     parser.add_argument('--follow-symlinks', action="store_true", help="Allow symlinks to be added into packages",
-                         default=False)
-    parser.add_argument('--overwrite', action="store_false", default=True,
-                        help="Overwrite files when adding to a package, enabled by default.")
+                        default=None)
+    parser.add_argument('--no-overwrite', action="store_false", default=None,
+                        help="Prevents overwriting files when adding to a package | not implemented")
     args = parser.parse_args()
     
-    pkgname = args.action[0]
+    
     action = args.action[1].lower() if len(args.action) > 1 else None
+    if action is None:
+        sys.stderr.write("Required PackageName and Action parameter is missing.\n")
+        sys.exit(1)
+        
+    pkgname = args.action[0]
     
-    opts = {}
-    # FIXME: need locals and global options mixed, locals override globals
-    # FIXME: No default values. Only if an argument is specified will it be used, else use db, else sane default
-    # Set options with overriding cli arguments:   argument > config file > default value 
-    opts['version'] = args.set_version if not args.set_version is None else "0.1"
-    opts['provides'] = args.provides if args.provides else [args.action[0].lower()]
-    opts['directory'] = os.path.abspath(args.directory if not args.directory is None else opts.get('directory', os.getcwd()))
-    opts['author'] = args.author if args.author else opts.get('author', '').split(',')
-    opts['architecture'] = args.architecture if args.architecture else opts.get('architecture', '').split(',')
-    opts['section'] = args.section if not args.section is None else opts.get('section', 'misc')
-    opts['essential'] = args.essential if not args.essential is None else opts.get('essential', False)
-    opts['depends'] = args.depends if not args.depends is None else opts.get('depends', '').split(',')
-    opts['suggests'] = args.suggests if not args.suggests is None else opts.get('suggests', '').split(',')
-    opts['recommends'] = args.recommends if not args.recommends is None else opts.get('recommends', '').split(',')
-    opts['maintainer'] = args.maintainer.split(',') if not args.maintainer is None else opts.get('maintainer', [socket.gethostname()])
-    opts['homepage'] = args.homepage if not args.homepage is None else opts.get('homepage', '')
-    opts['license'] = args.license if not args.license is None else opts.get('license', '')
-    opts['follow-symlinks'] = args.follow_symlinks # FIXME
-    opts['overwrite'] = args.overwrite # FIXME
-    opts['increment'] = args.increment
-    # <-- End Command Line Argument parsing
+    opts = dict(set_version="0.1",
+                provides=[pkgname.lower()],
+                directory=os.path.abspath(os.getcwd()),
+                is_essential=False,
+                author=[],
+                architecture=[arch()],
+                maintainer=[socket.gethostname()],
+                files={},
+                desc="No description set",
+                description=["..."],
+                homepage="",
+                depends=[],
+                recommends=[],
+                suggests=[],
+                section="misc")
     
+    for k, v in vars(args).items():
+        if not v is None:
+            opts[k] = v
+            
     if not action in ACTIONS:
         sys.stderr.write("Invalid action: {}.\nAvailable actions: {}\n".format(
             action, ', '.join(ACTIONS)))
@@ -128,7 +129,7 @@ if __name__ == "__main__":
         
         if not os.path.exists(os.path.join(opts.get('directory'), pkgname)):
             os.makedirs(os.path.join(opts.get('directory'), pkgname), exist_ok=True)
-            lib.db.init_db(opts['directory'], pkgname, **opts)
+            lib.db.init_db(opts.get('directory'), pkgname, **opts)
             print("Creating {} Package".format(pkgname))
             
         else:
@@ -193,6 +194,8 @@ if __name__ == "__main__":
     
     elif action == "build":
         if lib.db.validate_db(opts.get('directory'), pkgname):
+            db = lib.db.entire_db(opts.get('directory'), pkgname)
+            opts.update(db)
             retcode = lib.build.build_package(opts.get('directory'), pkgname, **opts)
             if not retcode == 0:
                 sys.stderr.write("Error: Package Building Failed, control file may be bad\n")
@@ -203,14 +206,12 @@ if __name__ == "__main__":
             sys.stderr.write("Warning: {} is not a debian package directory.\n".format(pkgname))
         
     elif action == "update":
-        for a in args.action[1:]:
-            if lib.db.validate_db(opts.get('directory'), pkgname):
-                lib.deploy.remove_svn_dirs(os.path.join(opts.get('directory'), a))
-                lib.db.write_keys(opts.get('directory'), a, **opts)
-                print("Updating {}...".format(a))
-                
-            else:
-                sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
+        if lib.db.validate_db(opts.get('directory'), pkgname):
+            lib.db.write_keys(opts.get('directory'), pkgname, **opts)
+            print("Updating {}...".format(pkgname))
+            
+        else:
+            sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
         
     elif action == "sections":
         print('\n'.join(SECTIONS))
