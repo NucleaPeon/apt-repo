@@ -3,60 +3,35 @@ Database Connector for apt-repo
 
 TODO: Improve by chunking reads
 """
-import json, os
-APTPKGDB = '.apt-pkg.db'
+import shelve
+import os
 
-def init_repo(**kwargs):
-    pass
+def init_db(path, pkgname, **kwargs):
+    write_keys(path, pkgname, **kwargs)
+        
+def write_keys(path, pkgname, **kwargs):
+    with shelve.open(os.path.join(path, pkgname), writeback=True) as shelf:
+        for k, v in kwargs.items():
+            shelf[k] = v
 
-def init_package(path, pkgname, **kwargs):
-    if os.path.exists(os.path.join(path, pkgname)):
-        update_package(os.path.join(path, pkgname), **kwargs)
+def read_keys(path, pkgname, *keys):
+    ret = {}
+    with shelve.open(os.path.join(path, pkgname)) as shelf:
+        for k in keys:
+            ret[k] = shelf[k]
         
-        
-def __write_db(path, db):
+    return ret
+
+def keys(path, pkgname):
+    with shelve.open(os.path.join(path, pkgname)) as shelf:
+        yield shelf.keys()
+
+def delete_key(path, pkgname, key):
     try:
-        with open(os.path.join(path, APTPKGDB), 'w') as f:
-            f.write(json.dumps(db, default=str))
+        with shelve.open(os.path.join(path, pkgname), writeback=True) as shelf:
+            del shelf[key]
             
-    except Exception as E:
-        print(E)
-
-def read_package(path):
-    db = json.dumps({})
-    if os.path.exists(os.path.join(path, APTPKGDB)):
-        with open(os.path.join(path, APTPKGDB), 'r') as f:
-            db = f.read()
+        return True
             
-    return json.loads(db)
-
-def update_package(path, clear_files=False, **kwargs):
-    print(kwargs.get('files'))
-    db = read_package(path)
-    files = db.get('files', {})
-    print(files)
-    if not kwargs.get('files') is None and isinstance(kwargs.get('files'), dict):
-        files.update(kwargs['files'])
-        
-    db.update(kwargs)
-    db['files'] = files if not clear_files else {}
-    
-    __write_db(path, db)
-        
-    return db
-
-def remove_files(path, *files):
-    db = read_package(path)
-    oldfiles = db.get('files', {})
-    keys = oldfiles.keys()
-    for f in files:
-        print(f)
-        if f in keys:
-            print("Removing {}".format(f))
-            del oldfiles[f]
-            
-    db['files'] = oldfiles # now newfiles
-    print(db['files'])
-    __write_db(path, db)
-    
-    return db
+    except KeyError as kE:
+        return False

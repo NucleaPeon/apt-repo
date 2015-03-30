@@ -22,11 +22,13 @@ import socket
 import shutil
 from subprocess import PIPE, Popen
 import configparser
+import shelve
 
 # local apt-repo modules
 from __init__ import arch_dir, get_arch
 import lib.db
 import lib.build
+import lib.deploy
 
 from lib.build import SECTIONS
 
@@ -34,57 +36,16 @@ ACTIONS = ["create", "delete", "modify", "add", "remove", "rem", "clean",
            "update", "build", "valid", "info", "licenses", "sections", "help", None]
 
 DEBIAN_FILES = ['postinst', 'postrm', 'preinst', 'prerm', 'control']
+
+REMOVE_FILES = ['__pycache__', '.svn']
+
 # NOTE: Anytime a package is updated, it must update the gpg file
-
-def update_pkg(package_name):
-    """
-    :Description:
-        Take all the steps to update the target debian folder package data
-        - Update Install-Size
-        - Regenerate control file
-        - Re-validate package data
-    """
-    pass
-
-def remove_svn_dirs(path):
-    for dirpath, dirnames, filenames in os.walk(path):
-        for dname in dirnames:
-            if dname == ".svn":
-                print(os.path.join(dirpath, dname))
-                shutil.rmtree(os.path.join(dirpath, dname))
-
-def write_into(src, dst, overwrite=True, symlinks=False):
-    src = os.path.abspath(src)
-    toplevel = src.split(os.sep)[-1]
-    target = os.path.join(dst, toplevel)
-    if not os.path.exists(target):
-        shutil.copytree(src, target, symlinks=symlinks)
-    
-    else:
-        subtarget = target # Initialize before reuse
-        print("Directory {} exists...".format(subtarget))
-        for dirpath, dirnames, filenames in os.walk(src):
-            
-            for dname in dirnames:
-                subtarget = os.path.join(dst, toplevel, dirpath.split(toplevel)[-1].lstrip(os.sep), dname)
-                if not os.path.exists(subtarget):
-                    shutil.copytree(os.path.join(dirpath, dname), subtarget, symlinks=symlinks)
-                
-                else:
-                    print("Directory {} exists...".format(subtarget))
-            
-            for fname in filenames:
-                subtarget = os.path.join(dst, toplevel, dirpath.split(toplevel)[-1].strip(os.sep), fname)
-                if not os.path.exists(subtarget) or overwrite:
-                    shutil.copy2(os.path.join(dirpath, f), subtarget, follow_symlinks=symlinks)
-                    
-                else:
-                    print("File {} exists...".format(subtarget))
             
 if __name__ == "__main__":
 
     # --> Start Command Line Argument parsing
-    parser = argparse.ArgumentParser(description="Apt Package Management Tool")
+    parser = argparse.ArgumentParser(description="Apt Package Management Tool",
+                                     usage="%(prog)s package-name action (optional action args) [cli options]")
     # publish command when invoked as the primary action will read in the transaction file
     # of commands made (add, remove) in chronological order so users can see their changes
     # before they are made live. Config file options can make this automatic, or supply --publish
@@ -131,7 +92,8 @@ if __name__ == "__main__":
                         help="Overwrite files when adding to a package, enabled by default.")
     args = parser.parse_args()
     
-    action = args.action[0].lower() if len(args.action) > 0 else None
+    pkgname = args.action[0]
+    action = args.action[1].lower() if len(args.action) > 1 else None
     
     opts = {}
     # FIXME: need locals and global options mixed, locals override globals
@@ -161,41 +123,37 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if action == "create":
-        for i, pkgname in enumerate(args.action[1:]):
-            umask = os.umask(0o022)
-            d = os.path.join(opts.get('directory'), pkgname)
+        umask = os.umask(0o022)
+        
+        if not os.path.exists(os.path.join(opts.get('directory'), pkgname)):
+            os.makedirs(os.path.join(opts.get('directory'), pkgname), exist_ok=True)
+            lib.db.init_db(opts['directory'], pkgname, **opts)
+            print("Creating {} Package".format(pkgname))
             
-            if not os.path.exists(d):
-                os.makedirs(d, exist_ok=True)
-                lib.db.init_package(opts['directory'], pkgname, **opts)
-                print("Creating {} Package".format(pkgname))
-                
+        else:
+            if os.path.isfile(os.path.join(opts.get('directory'), pkgname)):
+                sys.stderr.write("Warning: Filename collision at {}. Skipping...\n".format(pkgname))
+            
             else:
-                if os.path.isfile(d):
-                    sys.stderr.write("Warning: Filename collision at {}. Skipping...\n".format(pkgname))
+                sys.stderr.write("Warning: Package {} exists...\n".format(pkgname))
                 
-                else:
-                    sys.stderr.write("Warning: Package {} exists...\n".format(pkgname))
-                continue
+            exit(4)
         
     elif action == "delete":
-        for a in args.action[1:]:
-            d = os.path.join(opts.get('directory'), a)
-            if os.path.exists(d) and os.path.isdir(d):
-                # Do a quick check for package confirmation
-                if lib.build.apt_repo_pkg(d):
-                    umask = os.umask(0o022)
-                    print("Removing {} Package".format(a))
-                    shutil.rmtree(d)
-                    
-                else:
-                    sys.stderr.write("Warning: Not a Debian Package folder\n")
-                    
-                    
+        d = os.path.join(opts.get('directory'), pkgname)
+        if os.path.exists(d) and os.path.isdir(d):
+            # Do a quick check for package confirmation
+            if lib.db.validate_db(opts.get('directory'), pkgname):
+                umask = os.umask(0o022)
+                print("Removing {} Package".format(pkgname))
+                shutil.rmtree(d)
+                
             else:
-                sys.stderr.write("Warning: Directory {} does not exist.\n".format(
-                    opts.get('directory')))
-                sys.exit(2)
+                sys.stderr.write("Warning: Not a Debian Package folder\n")
+                
+        else:
+            sys.stderr.write("Warning: Directory {} does not exist.\n".format(pkgname))
+            sys.exit(2)
         
     elif action == "modify":
         print("TODO: Go through arguments and modify ones that have changed, or rewrite")
@@ -206,15 +164,15 @@ if __name__ == "__main__":
                 args.action[1]))
             sys.exit(8)
         
-        copypath = os.path.join(opts.get('directory'), args.action[1])
-        if not lib.build.apt_repo_pkg(copypath):
+        if not lib.db.validate_db(opts.get('directory'), pkgname):
             sys.stderr.write("Not a recognized debian package directory: {}\n".format(
                 args.action[1]))
             sys.exit(6)
             
-        fs_file = args.action[2]
-        rel_path = args.action[3]
-        lib.db.update_package(os.path.join(opts.get('directory'), args.action[1]), files={fs_file:rel_path})
+        key = "files"
+        db = lib.db.read_keys(opts.get('directory'), pkgname, key)
+        db[key][args.action[2]] = args.action[3]
+        lib.db.write_keys(opts.get('directory'), pkgname, files=db[key])
         
     elif action.startswith("rem") if not action is None else "":
         if len(args.action) < 2:
@@ -222,30 +180,32 @@ if __name__ == "__main__":
                 args.action[1]))
             sys.exit(5)
         
-        path = os.path.join(opts.get('directory'), args.action[1])
-        if lib.build.apt_repo_pkg(path):
-            lib.db.remove_files(path, *args.action[2:]) 
+        if lib.db.validate_db(opts.get('directory'), pkgname):
+            key = "files"
+            db = lib.db.read_keys(opts.get('directory'), pkgname, key)
+            for rm in args.action[2:]:
+                if not db[key].get(rm) is None:
+                    del db[key][rm]
+                        
+            lib.db.write_keys(opts.get('directory'), pkgname, files=db[key])
+                
     
     elif action == "build":
-        for a in args.action[1:]:
-            d = os.path.join(opts.get('directory'), a)
-            if lib.build.apt_repo_pkg(d):
-                retcode = lib.build.build_package(opts.get('directory'), a, 
-                                        lib.db.read_package(os.path.join(opts.get('directory'), a)))
-                if not retcode == 0:
-                    sys.stderr.write("Error: Package Building Failed, control file may be bad\n")
-                    # TODO: more information
-                    sys.exit(7)
-                
-            else:
-                sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
+        if lib.db.validate_db(opts.get('directory'), pkgname):
+            retcode = lib.build.build_package(opts.get('directory'), pkgname, **opts)
+            if not retcode == 0:
+                sys.stderr.write("Error: Package Building Failed, control file may be bad\n")
+                # TODO: more information
+                sys.exit(7)
+            
+        else:
+            sys.stderr.write("Warning: {} is not a debian package directory.\n".format(pkgname))
         
     elif action == "update":
         for a in args.action[1:]:
-            d = os.path.join(opts.get('directory'), a)
-            if lib.build.apt_repo_pkg(d):
-                remove_svn_dirs(d)
-                lib.db.update_package(os.path.join(opts.get('directory'), a), **opts)
+            if lib.db.validate_db(opts.get('directory'), pkgname):
+                lib.deploy.remove_svn_dirs(os.path.join(opts.get('directory'), a))
+                lib.db.write_keys(opts.get('directory'), a, **opts)
                 print("Updating {}...".format(a))
                 
             else:
@@ -261,9 +221,8 @@ if __name__ == "__main__":
     elif action == "clean":
         # Remove all files from a package
         for a in args.action[1:]:
-            d = os.path.join(opts.get('directory'), a)
-            if lib.build.apt_repo_pkg(d):
-                lib.db.update_package(os.path.join(opts.get('directory'), a), clear_files=True, **opts)
+            if lib.db.validate_db(opts.get('directory'), pkgname):
+                lib.db.write_keys(opts.get('directory'), pkgname, **opts)
                 print("Clearing files from {}...".format(a))
                 
             else:

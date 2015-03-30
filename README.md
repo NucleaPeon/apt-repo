@@ -17,7 +17,8 @@ Getting Started
 ===============
 
 * Download the debian binary installer
-* Go through the tutorial for creating your repository and packages: https://github.com/NucleaPeon/apt-repo/wiki/How-to-Set-up-a-New-Repository-with-Packages
+* Tutorial: https://github.com/NucleaPeon/apt-repo/wiki/How-to-Set-up-a-New-Repository-with-Packages
+
 
 Pre-requisites
 ==============

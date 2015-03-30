@@ -19,13 +19,13 @@ SECTIONS = ["admin", "cli-mono", "comm", "database", "debug", "devel", "doc", "e
     "news", "ocaml", "oldlibs", "otherosfs", "perl", "php", "python", "ruby", "science", "shells", "sound", "tasks",
     "tex", "text", "utils", "vcs", "video", "web", "x11", "xfce", "zope"]
 
-def create_deb_struct(path, pkgname, data={}):
+def create_deb_struct(path, pkgname, **kwargs):
     tmpdir = tempfile.mkdtemp(suffix='tmp', prefix=pkgname, 
                               dir=os.path.join(path, pkgname))
     
     copypath = os.path.join(path, pkgname, tmpdir)
     os.makedirs(os.path.join(copypath, 'DEBIAN'), exist_ok=True)
-    for src, dst in data.get('files', {}).items():
+    for src, dst in kwargs.get('files', {}).items():
         # TODO: blacklist file types and folders, use os.walk
         if os.path.isdir(src):
             shutil.copytree(src, os.path.join(path, pkgname, tmpdir, dst))
@@ -34,12 +34,13 @@ def create_deb_struct(path, pkgname, data={}):
             dstpath = os.path.join(path, pkgname, tmpdir, *dst.split(os.sep)[:-1])
             if not os.path.exists(dstpath):
                 os.makedirs(dstpath, exist_ok=True)
+                
             shutil.copy2(src, os.path.join(path, pkgname, tmpdir, dst))
         
     return tmpdir
     
 
-def build_package(path, pkgname, data={}):
+def build_package(path, pkgname, **kwargs):
     """
     TODO:
         - Copy package into a temporary directory where it can be built either in a 
@@ -51,11 +52,10 @@ def build_package(path, pkgname, data={}):
                   If directory: saves package based on control file data (name_ver_arch.deb)
                   If filename: save package file to filename
     """
-    
     dbmod = importlib.import_module('lib.db')
-    db = dbmod.read_keys(path, pkgname, *dbmod.keys())
-    db.update(data)
-    tmpdir = create_deb_struct(path, pkgname, data)
+    db = dbmod.read_keys(path, pkgname, *dbmod.keys(path, pkgname))
+    db.update(kwargs)
+    tmpdir = create_deb_struct(path, pkgname, **db)
     write_control_file(tmpdir, pkgname, **db)
     proc = Popen(['dpkg-deb', '--build', os.path.join(path, tmpdir), "."])
     proc.communicate()

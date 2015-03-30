@@ -60,7 +60,7 @@ if __name__ == "__main__":
     
     # --> Declare all methods to reuse code here:
     def format_deb_line(ip,  platforms, restrictions, https=False):
-        return "deb http{}://{}/ {} {}".format("s" if https else "", ip, toplevel,
+        return "deb http{}://{}/ {} {}".format("s" if https else "", ip,
                                                  ' '.join(platforms), ' '.join(restrictions))
 
     # FIXME: This needs to be moved into the lib folder so it can be shared with
