@@ -56,6 +56,6 @@ def validate_db(path, pkgname):
             return True
         
     except Exception as E:
-        print(E)
+        pass # Fail
         
     return False

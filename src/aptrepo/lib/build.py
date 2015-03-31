@@ -11,7 +11,7 @@ import os
 import importlib
 from decimal import *
 
-
+REMOVE_FILES_FOLDERS = ['__pycache__', '.svn']
 
 SECTIONS = ["admin", "cli-mono", "comm", "database", "debug", "devel", "doc", "editors", "education", "electronics", 
     "embedded", "fonts", "games", "gnome", "gnu-r", "gnustep", "graphics", "hamradio", "haskell", "httpd", "interpreters", "introspection",
@@ -56,6 +56,7 @@ def build_package(path, pkgname, **kwargs):
     db = dbmod.read_keys(path, pkgname, *dbmod.keys(path, pkgname))
     db.update(kwargs)
     tmpdir = create_deb_struct(path, pkgname, **db)
+    remove_non_deployables(tmpdir, *REMOVE_FILES_FOLDERS)
     write_control_file(tmpdir, pkgname, **db)
     proc = Popen(['dpkg-deb', '--build', os.path.join(path, tmpdir), "."])
     proc.communicate()
@@ -117,3 +118,19 @@ def write_control_file(path, pkgname, **kwargs):
         cf.write("Description: {}\n".format(kwargs.get('desc', 'Description Not Set')))
         for d in kwargs.get('description', ['...']):
             cf.write(" {}\n".format(d))
+            
+def remove_non_deployables(toplevel, *non_deployables):
+    """
+    Non Deployables are files and folders that no one wants deployed on the
+    target system. Examples of these are "__pycache__" folders from python,
+    ".svn" folders from subversion and other temp files that litter 
+    code folders that shouldn't be placed on the target system.
+    """
+    for root, folders, files in os.walk(toplevel):
+        for f in files: 
+            if f in non_deployables:
+                os.remove(os.path.join(root, f))
+                
+        for d in folders:
+            if d in non_deployables:
+                shutil.rmtree(os.path.join(root, d))

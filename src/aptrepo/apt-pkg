@@ -39,8 +39,6 @@ ACTIONS = ["create", "delete", "modify", "add", "remove", "rem", "clean",
 
 DEBIAN_FILES = ['postinst', 'postrm', 'preinst', 'prerm', 'control']
 
-REMOVE_FILES = ['__pycache__', '.svn']
-
 # NOTE: Anytime a package is updated, it must update the gpg file
             
 if __name__ == "__main__":
@@ -54,7 +52,7 @@ if __name__ == "__main__":
     # option (-p) to each package command
     parser.add_argument('action', nargs="*", default=None,
                        help="Perform an action: create, delete, modify, update, build, valid, info, licenses, help")
-    parser.add_argument('--directory', '-d', nargs=1,
+    parser.add_argument('--directory', '-d', nargs=1, default=os.path.abspath(os.getcwd()),
                         help="Specify directory to host debian package data")
     parser.add_argument('--author', nargs='*',
                         help='Sets the name of the package author(s). Use format "author name <author@email.com>"')
@@ -99,6 +97,8 @@ if __name__ == "__main__":
         
     pkgname = args.action[0]
     
+    # Use sane defaults as default arguments or the package database.
+    # Only command line paramters that are not None will override these.
     opts = dict(set_version="0.1",
                 provides=[pkgname.lower()],
                 directory=os.path.abspath(os.getcwd()),
@@ -113,7 +113,8 @@ if __name__ == "__main__":
                 depends=[],
                 recommends=[],
                 suggests=[],
-                section="misc")
+                section="misc") if not lib.db.validate_db(args.directory, pkgname) else \
+                    lib.db.entire_db(args.directory, pkgname)
     
     for k, v in vars(args).items():
         if not v is None:
@@ -195,7 +196,6 @@ if __name__ == "__main__":
     elif action == "build":
         if lib.db.validate_db(opts.get('directory'), pkgname):
             db = lib.db.entire_db(opts.get('directory'), pkgname)
-            opts.update(db)
             retcode = lib.build.build_package(opts.get('directory'), pkgname, **opts)
             if not retcode == 0:
                 sys.stderr.write("Error: Package Building Failed, control file may be bad\n")
