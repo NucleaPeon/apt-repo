@@ -10,6 +10,7 @@ import shutil
 import os
 import importlib
 from decimal import *
+import aptrepo.lib.db
 
 REMOVE_FILES_FOLDERS = ['__pycache__', '.svn']
 
@@ -52,8 +53,7 @@ def build_package(path, pkgname, **kwargs):
                   If directory: saves package based on control file data (name_ver_arch.deb)
                   If filename: save package file to filename
     """
-    dbmod = importlib.import_module('lib.db')
-    db = dbmod.read_keys(path, pkgname, *dbmod.keys(path, pkgname))
+    db = aptrepo.lib.db.read_keys(path, pkgname, *aptrepo.lib.db.keys(path, pkgname))
     db.update(kwargs)
     tmpdir = create_deb_struct(path, pkgname, **db)
     remove_non_deployables(tmpdir, *REMOVE_FILES_FOLDERS)

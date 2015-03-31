@@ -26,13 +26,9 @@ import shelve
 import json
 
 # local apt-repo modules
-from lib.arch import arch_dir, get_arch, arch
-import lib.db
-import lib.build
-import lib.deploy
-
-
-from lib.build import SECTIONS
+from aptrepo.lib.arch import arch_dir, get_arch, arch
+import aptrepo.lib.db
+import aptrepo.lib.build
 
 ACTIONS = ["create", "delete", "modify", "add", "remove", "rem", "clean", 
            "update", "build", "valid", "info", "licenses", "sections", "help", None]
@@ -87,6 +83,11 @@ if __name__ == "__main__":
                         default=None)
     parser.add_argument('--no-overwrite', action="store_false", default=None,
                         help="Prevents overwriting files when adding to a package | not implemented")
+    # TODO: Change log methods
+    parser.add_argument('--changelog', '-c', 
+                        help="Specify a string that contains an update message to add to the package")
+    parser.add_argument('--changelog-file', '-F',
+                        help="Specify a file that contains the changelog message.")
     args = parser.parse_args()
     
     
@@ -113,8 +114,8 @@ if __name__ == "__main__":
                 depends=[],
                 recommends=[],
                 suggests=[],
-                section="misc") if not lib.db.validate_db(args.directory, pkgname) else \
-                    lib.db.entire_db(args.directory, pkgname)
+                section="misc") if not aptrepo.lib.db.validate_db(args.directory, pkgname) else \
+                    aptrepo.lib.db.entire_db(args.directory, pkgname)
     
     for k, v in vars(args).items():
         if not v is None:
@@ -130,7 +131,7 @@ if __name__ == "__main__":
         
         if not os.path.exists(os.path.join(opts.get('directory'), pkgname)):
             os.makedirs(os.path.join(opts.get('directory'), pkgname), exist_ok=True)
-            lib.db.init_db(opts.get('directory'), pkgname, **opts)
+            aptrepo.lib.db.init_db(opts.get('directory'), pkgname, **opts)
             print("Creating {} Package".format(pkgname))
             
         else:
@@ -146,7 +147,7 @@ if __name__ == "__main__":
         d = os.path.join(opts.get('directory'), pkgname)
         if os.path.exists(d) and os.path.isdir(d):
             # Do a quick check for package confirmation
-            if lib.db.validate_db(opts.get('directory'), pkgname):
+            if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
                 umask = os.umask(0o022)
                 print("Removing {} Package".format(pkgname))
                 shutil.rmtree(d)
@@ -167,15 +168,15 @@ if __name__ == "__main__":
                 args.action[1]))
             sys.exit(8)
         
-        if not lib.db.validate_db(opts.get('directory'), pkgname):
+        if not aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
             sys.stderr.write("Not a recognized debian package directory: {}\n".format(
                 args.action[1]))
             sys.exit(6)
             
         key = "files"
-        db = lib.db.read_keys(opts.get('directory'), pkgname, key)
+        db = aptrepo.lib.db.read_keys(opts.get('directory'), pkgname, key)
         db[key][args.action[2]] = args.action[3]
-        lib.db.write_keys(opts.get('directory'), pkgname, files=db[key])
+        aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, files=db[key])
         
     elif action.startswith("rem") if not action is None else "":
         if len(args.action) < 2:
@@ -183,20 +184,20 @@ if __name__ == "__main__":
                 args.action[1]))
             sys.exit(5)
         
-        if lib.db.validate_db(opts.get('directory'), pkgname):
+        if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
             key = "files"
-            db = lib.db.read_keys(opts.get('directory'), pkgname, key)
+            db = aptrepo.lib.db.read_keys(opts.get('directory'), pkgname, key)
             for rm in args.action[2:]:
                 if not db[key].get(rm) is None:
                     del db[key][rm]
                         
-            lib.db.write_keys(opts.get('directory'), pkgname, files=db[key])
+            aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, files=db[key])
                 
     
     elif action == "build":
-        if lib.db.validate_db(opts.get('directory'), pkgname):
-            db = lib.db.entire_db(opts.get('directory'), pkgname)
-            retcode = lib.build.build_package(opts.get('directory'), pkgname, **opts)
+        if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
+            db = aptrepo.lib.db.entire_db(opts.get('directory'), pkgname)
+            retcode = aptrepo.lib.build.build_package(opts.get('directory'), pkgname, **opts)
             if not retcode == 0:
                 sys.stderr.write("Error: Package Building Failed, control file may be bad\n")
                 # TODO: more information
@@ -206,27 +207,27 @@ if __name__ == "__main__":
             sys.stderr.write("Warning: {} is not a debian package directory.\n".format(pkgname))
         
     elif action == "update":
-        if lib.db.validate_db(opts.get('directory'), pkgname):
-            lib.db.write_keys(opts.get('directory'), pkgname, **opts)
+        if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
+            aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, **opts)
             print("Updating {}...".format(pkgname))
             
         else:
             sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
         
     elif action == "sections":
-        print('\n'.join(SECTIONS))
+        print('\n'.join(aptrepo.lib.build.SECTIONS))
         
     elif action == "info":
-        if lib.db.validate_db(opts.get('directory'), pkgname):
-            print(json.dumps(lib.db.entire_db(opts.get('directory'), pkgname), default=str,
+        if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
+            print(json.dumps(aptrepo.lib.db.entire_db(opts.get('directory'), pkgname), default=str,
                              sort_keys=True,
                              indent=4,
                              separators=(',', ': ',)))
         
     elif action == "clean":
         # Remove all files from a package
-        if lib.db.validate_db(opts.get('directory'), pkgname):
-            lib.db.write_keys(opts.get('directory'), pkgname, files={})
+        if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
+            aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, files={})
             
         else:
             sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))

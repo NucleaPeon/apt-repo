@@ -33,10 +33,10 @@ import socket
 import hashlib
 import shutil
 import json
-from lib.scanpackages import Packages_gz
+from aptrepo.lib.scanpackages import Packages_gz
 
 from subprocess import PIPE, Popen
-from __init__ import arch_dir, get_arch
+from aptrepo.lib.arch import arch, get_arch, arch_dir
         
 def repo_path_validate(base, platforms, restrictions):
     # Returns True if valid, False otherwise
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     parser.add_argument('--ip', '-i', nargs=1, help="Overrides the auto ip discovering feature")
     parser.add_argument('--gpg', '-g', nargs=1, default=None, #"./apt-repo.public.key",
                         help="Exports (and optionally creates) the gpg key to target path and filename") # TODO: Confirm use case of this option
-    parser.add_argument('--architecture', '-a', nargs="*", default=[get_arch(platform.machine())],
+    parser.add_argument('--architecture', '-a', nargs="*", default=[arch()],
                         help="Architectures to create repository with; defaults to current arch and source")
     parser.add_argument('--toplevel', '-t', nargs="?", default='debian',
                         help="name of top level directory; defaults to 'debian'")
