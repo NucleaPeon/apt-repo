@@ -91,34 +91,44 @@ def write_control_file(path, pkgname, **kwargs):
     umask = os.umask(0o022)
     # TODO Detect if package has a database file and use those
     # Create control file with any data we have to work with:
-    with open(os.path.join(path, "DEBIAN", "control"), 'w') as cf:
-        cf.write("Package: {}\n".format(pkgname))
-        cf.write("Version: {}\n".format(kwargs.get('set_version', 0.1)))
-        cf.write("Architecture: {}\n".format(' '.join(kwargs.get('architecture'))))
-        cf.write("Section: {}\n".format(kwargs.get('section') if kwargs.get('section') in SECTIONS else "misc"))
-        cf.write("Essential: {}\n".format("yes" if kwargs.get('essential') else "no"))
-        if kwargs.get('depends'):
-            cf.write("Depends: {}\n".format(', '.join(kwargs.get('depends'))))
+    controls = kwargs.get('control', {})
+    for k, v in controls.items():
+        if os.path.exists(v) and os.path.isfile(v):
+            print("\tGenerating {}".format(k))
+            shutil.copy2(v, os.path.join(path, "DEBIAN", k))
+            os.chmod(os.path.join(path, "DEBIAN", k), 0o775)
+    
+    # Only write this control file if no other "control" file is specified
+    # as a control option
+    if controls.get('controls', None) is None:
+        with open(os.path.join(path, "DEBIAN", "control"), 'w') as cf:
+            cf.write("Package: {}\n".format(pkgname))
+            cf.write("Version: {}\n".format(kwargs.get('set_version', 0.1)))
+            cf.write("Architecture: {}\n".format(' '.join(kwargs.get('architecture'))))
+            cf.write("Section: {}\n".format(kwargs.get('section') if kwargs.get('section') in SECTIONS else "misc"))
+            cf.write("Essential: {}\n".format("yes" if kwargs.get('essential') else "no"))
+            if kwargs.get('depends'):
+                cf.write("Depends: {}\n".format(', '.join(kwargs.get('depends'))))
+                
+            if kwargs.get('recommends'):
+                cf.write("Recommends: {}\n".format(', '.join(kwargs.get('recommends'))))
             
-        if kwargs.get('recommends'):
-            cf.write("Recommends: {}\n".format(', '.join(kwargs.get('recommends'))))
-        
-        if kwargs.get('suggests'):
-            cf.write("Suggests: {}\n".format(', '.join(kwargs.get('suggests'))))
-        
-        cf.write("Provides: {}\n".format(', '.join(kwargs.get('provides', [pkgname]))))
-        size = Decimal(pkg_installed_size(path) / 1024).quantize(Decimal('1.'), rounding=ROUND_UP)
-        cf.write("Installed-Size: {}\n".format(size))
-        if not kwargs.get('homepage') is None:
-            cf.write("Homepage: {}\n".format(kwargs.get('homepage')))
-        cf.write("Package-Type: deb\n")
-        if not kwargs.get('maintainer') is None:
-            cf.write("Maintainer: {}\n".format(', '.join(kwargs.get('maintainer'))))
+            if kwargs.get('suggests'):
+                cf.write("Suggests: {}\n".format(', '.join(kwargs.get('suggests'))))
             
-        cf.write("Description: {}\n".format(kwargs.get('desc', 'Description Not Set')))
-        for d in kwargs.get('description', ['...']):
-            cf.write(" {}\n".format(d))
-            
+            cf.write("Provides: {}\n".format(', '.join(kwargs.get('provides', [pkgname]))))
+            size = Decimal(pkg_installed_size(path) / 1024).quantize(Decimal('1.'), rounding=ROUND_UP)
+            cf.write("Installed-Size: {}\n".format(size))
+            if not kwargs.get('homepage') is None:
+                cf.write("Homepage: {}\n".format(kwargs.get('homepage')))
+            cf.write("Package-Type: deb\n")
+            if not kwargs.get('maintainer') is None:
+                cf.write("Maintainer: {}\n".format(', '.join(kwargs.get('maintainer'))))
+                
+            cf.write("Description: {}\n".format(kwargs.get('desc', 'Description Not Set')))
+            for d in kwargs.get('description', ['...']):
+                cf.write(" {}\n".format(d))
+
 def remove_non_deployables(toplevel, *non_deployables):
     """
     Non Deployables are files and folders that no one wants deployed on the
