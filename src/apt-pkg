@@ -31,9 +31,45 @@ import aptrepo.lib.build
 
 ACTIONS = ["create", "delete", "modify", "add", "remove", "rem", "clean", 
            "update", "build", "valid", "info", "licenses", "sections", "help", 
-           "control", None]
+           "control"]
 
 DEBIAN_FILES = ['postinst', 'postrm', 'preinst', 'prerm', 'control']
+
+def print_help():
+        print()
+        print("apt-pkg program help")
+        print("====================")
+        print()
+        print("apt-repo is a repository-focused script that allows automation of admin tasks.")
+        print("The following are actions that can be performed:")
+        print()
+        print("create: Creates the directory structure for the specified package names.")
+        print("        Package names should generally not include version numbers and should")
+        print("        only consist of characters, digits and hyphens. Defaults to 'all' arch")
+        print("        Names cannot start with digits.")
+        print()
+        print("delete: ")
+        print()
+        print("modify: ")
+        print()
+        print("update: ")
+        print()
+        print("build:  ")
+        print()
+        print("control: Links the specified file as a control component.")
+        print()
+        print("         Format: apt-pkg [packagename] control [controlfile] [filepath]")
+        print("         Ex: apt-pkg mypackage control postinst /home/user/myscript.sh")
+        print()
+        print("clean:  Remove all package files (and control files) from the database")
+        print()
+        print()
+        print("valid:  ")
+        print()
+        print("info:   ")
+        print()
+        print("licenses: ")
+        print()
 
 # NOTE: Anytime a package is updated, it must update the gpg file
             
@@ -94,6 +130,7 @@ if __name__ == "__main__":
     action = args.action[1].lower() if len(args.action) > 1 else None
     if action is None:
         sys.stderr.write("Required PackageName and Action parameter is missing.\n")
+        print_help()
         sys.exit(1)
         
     pkgname = args.action[0]
@@ -302,40 +339,7 @@ if __name__ == "__main__":
         print()
     
     elif action == "help":
-        print()
-        print("apt-pkg program help")
-        print("====================")
-        print()
-        print("apt-repo is a repository-focused script that allows automation of admin tasks.")
-        print("The following are actions that can be performed:")
-        print()
-        print("create: Creates the directory structure for the specified package names.")
-        print("        Package names should generally not include version numbers and should")
-        print("        only consist of characters, digits and hyphens. Defaults to 'all' arch")
-        print("        Names cannot start with digits.")
-        print()
-        print("delete: ")
-        print()
-        print("modify: ")
-        print()
-        print("update: ")
-        print()
-        print("build:  ")
-        print()
-        print("control: Links the specified file as a control component.")
-        print()
-        print("         Format: apt-pkg [packagename] control [controlfile] [filepath]")
-        print("         Ex: apt-pkg mypackage control postinst /home/user/myscript.sh")
-        print()
-        print("clean:  Remove all package files (and control files) from the database")
-        print()
-        print()
-        print("valid:  ")
-        print()
-        print("info:   ")
-        print()
-        print("licenses: ")
-        print()
+        print_help()
 
     elif action is None:
         sys.exit(3)
