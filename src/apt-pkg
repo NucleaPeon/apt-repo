@@ -273,7 +273,7 @@ if __name__ == "__main__":
             print("Updating {}...".format(pkgname))
             
         else:
-            sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
+            sys.stderr.write("Warning: {} is not a debian package directory.\n".format(opts.get('directory')))
         
     elif action == "sections":
         print('\n'.join(aptrepo.lib.build.SECTIONS))
