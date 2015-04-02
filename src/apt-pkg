@@ -217,7 +217,13 @@ if __name__ == "__main__":
             
         key = "files"
         db = aptrepo.lib.db.read_keys(opts.get('directory'), pkgname, key)
-        db[key][args.action[2]] = args.action[3]
+        correctpath = args.action[2]
+        if os.path.isdir(correctpath):
+            if not correctpath[-1] == os.sep:
+                correctpath = correctpath + os.sep
+            
+            
+        db[key][correctpath] = args.action[3]
         aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, files=db[key])
         
     elif action.startswith("rem") if not action is None else "":
@@ -230,8 +236,13 @@ if __name__ == "__main__":
             key = "files"
             db = aptrepo.lib.db.read_keys(opts.get('directory'), pkgname, key)
             for rm in args.action[2:]:
-                if not db[key].get(rm) is None:
-                    del db[key][rm]
+                correctpath = rm
+                if os.path.isdir(correctpath):
+                    if not correctpath[-1] == os.sep:
+                        correctpath = correctpath + os.sep
+                
+                if not db[key].get(correctpath) is None:
+                    del db[key][correctpath]
                         
             aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, files=db[key])
                 

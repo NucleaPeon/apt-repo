@@ -8,9 +8,11 @@ from subprocess import Popen, PIPE
 import tempfile
 import shutil
 import os
+import sys
 import importlib
 from decimal import *
 import aptrepo.lib.db
+import traceback
 
 REMOVE_FILES_FOLDERS = ['__pycache__', '.svn']
 
@@ -19,6 +21,25 @@ SECTIONS = ["admin", "cli-mono", "comm", "database", "debug", "devel", "doc", "e
     "java", "kde", "kernel", "libdevel", "libs", "lisp", "localization", "mail", "math", "metapackages", "misc", "net",
     "news", "ocaml", "oldlibs", "otherosfs", "perl", "php", "python", "ruby", "science", "shells", "sound", "tasks",
     "tex", "text", "utils", "vcs", "video", "web", "x11", "xfce", "zope"]
+
+def copytree(src, dst, write_into=True):
+    os.makedirs(dst, exist_ok=True)
+    common = ''
+    newdst = ''
+    for root, folders, files in os.walk(src): 
+        for d in folders:
+            common = os.path.commonprefix([src, os.path.join(root, d)])
+            newdst = os.path.join(dst, os.path.join(root, d).replace(common, ''))
+            os.makedirs(newdst, exist_ok=True)
+            #print("Create Dir {} here: {}".format(os.path.join(root, d), newdst))
+            
+        for f in files:
+            common = os.path.commonprefix([src, os.path.join(root, f)])
+            newdst = os.path.join(dst, os.path.join(root, f).replace(common, ''))
+            # Need to ensure directories exist leading to this file
+            #print("Copy File {} here: {}".format(os.path.join(root, f), newdst))
+            shutil.copy2(os.path.join(root, f), newdst)
+                
 
 def create_deb_struct(path, pkgname, **kwargs):
     tmpdir = tempfile.mkdtemp(suffix='tmp', prefix=pkgname, 
@@ -29,13 +50,12 @@ def create_deb_struct(path, pkgname, **kwargs):
     for src, dst in kwargs.get('files', {}).items():
         # TODO: blacklist file types and folders, use os.walk
         if os.path.isdir(src):
-            shutil.copytree(src, os.path.join(path, pkgname, tmpdir, dst))
+            #print("Copy tree {}, {}".format(src, os.path.join(path, pkgname, tmpdir, dst)))
+            copytree(src, os.path.join(path, pkgname, tmpdir, dst))
             
         else:
             dstpath = os.path.join(path, pkgname, tmpdir, *dst.split(os.sep)[:-1])
-            if not os.path.exists(dstpath):
-                os.makedirs(dstpath, exist_ok=True)
-                
+            os.makedirs(dstpath, exist_ok=True)
             shutil.copy2(src, os.path.join(path, pkgname, tmpdir, dst))
         
     return tmpdir
@@ -61,6 +81,7 @@ def build_package(path, pkgname, **kwargs):
     proc = Popen(['dpkg-deb', '--build', os.path.join(path, tmpdir), "."])
     proc.communicate()
     shutil.rmtree(tmpdir)
+        
     return proc.returncode
 
 def pkg_installed_size(path, append_bytes=None, ignored_files=['DEBIAN']):
