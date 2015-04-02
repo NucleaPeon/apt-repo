@@ -98,9 +98,9 @@ if __name__ == "__main__":
     if not action in ACTIONS:
         sys.stderr.write("Valid ACTION required -- Found [{}].\nSee 'apt-repo help' or 'apt-repo --help' for more information\n".format(action))
         sys.exit(1)
-    
+        
     opts = dict(desc="<Description Goes Here>",
-                directory=os.path.abspath(os.getcwd()),
+                directory=args.directory,
                 name="",
                 email="no-reply@localhost.com",
                 architecture=[arch()],

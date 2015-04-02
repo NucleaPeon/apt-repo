@@ -2,7 +2,7 @@ import platform
 
 ARCH = {"x86_64": "amd64",
         "x86": "i386",
-        "armv7l": "armel",
+        "armv7l": "armhf",
         "armv6l": "armhf"} # Beaglebone black arch
 
 def get_arch(arch):
