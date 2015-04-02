@@ -163,7 +163,6 @@ if __name__ == "__main__":
     if opts.get('override') is None:
         opts['override'] = {}
         
-    print(opts)
     
     for k, v in vars(args).items():
         if not v is None:
