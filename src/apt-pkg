@@ -29,7 +29,7 @@ from aptrepo.lib.arch import arch_dir, get_arch, arch
 import aptrepo.lib.db
 import aptrepo.lib.build
 
-ACTIONS = ["create", "delete", "modify", "add", "remove", "rem", "clean", 
+ACTIONS = ["create", "delete", "modify", "add", "remove", "rem", "clean", "override", 
            "update", "build", "valid", "info", "licenses", "sections", "help", 
            "control"]
 
@@ -143,6 +143,7 @@ if __name__ == "__main__":
                 directory=os.path.abspath(os.getcwd()),
                 is_essential=False,
                 author=[],
+                override={},
                 architecture=[arch()],
                 maintainer=[socket.gethostname()],
                 files={},
@@ -158,6 +159,11 @@ if __name__ == "__main__":
     if not isinstance(opts.get('control'), dict):
         # Upgrade from 0.9.3 to 0.9.4 without breaking for control files, remove later
         opts['control'] = {}
+        
+    if opts.get('override') is None:
+        opts['override'] = {}
+        
+    print(opts)
     
     for k, v in vars(args).items():
         if not v is None:
@@ -226,6 +232,30 @@ if __name__ == "__main__":
         db[key][correctpath] = args.action[3]
         aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, files=db[key])
         
+    elif action == "override":
+        if len(args.action) != 4:
+            sys.stderr.write("Adding paths to package needs [path to file] [rel path in package] arguments: {}\n".format(
+                args.action[1]))
+            sys.exit(8)
+        
+        if not aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
+            sys.stderr.write("Not a recognized debian package directory: {}\n".format(
+                args.action[1]))
+            sys.exit(6)
+            
+        key = "override"
+        db = aptrepo.lib.db.read_keys(opts.get('directory'), pkgname, key)
+        if db[key] is None:
+            db[key] = {}
+            
+        correctpath = args.action[2]
+        if os.path.isdir(correctpath):
+            if not correctpath[-1] == os.sep:
+                correctpath = correctpath + os.sep
+        
+        db[key][correctpath] = args.action[3]
+        aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, override=db[key])
+        
     elif action.startswith("rem") if not action is None else "":
         if len(args.action) < 2:
             sys.stderr.write("No files specified to be removed from {}\n".format(
@@ -233,18 +263,23 @@ if __name__ == "__main__":
             sys.exit(5)
         
         if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
-            key = "files"
-            db = aptrepo.lib.db.read_keys(opts.get('directory'), pkgname, key)
-            for rm in args.action[2:]:
-                correctpath = rm
-                if os.path.isdir(correctpath):
-                    if not correctpath[-1] == os.sep:
-                        correctpath = correctpath + os.sep
+            def rem_from_keys(key):
+                db = aptrepo.lib.db.read_keys(opts.get('directory'), pkgname, key)
+                for rm in args.action[2:]:
+                    correctpath = rm
+                    if os.path.isdir(correctpath):
+                        if not correctpath[-1] == os.sep:
+                            correctpath = correctpath + os.sep
                 
-                if not db[key].get(correctpath) is None:
-                    del db[key][correctpath]
-                        
-            aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, files=db[key])
+                    if not db[key].get(correctpath) is None:
+                        del db[key][correctpath]
+                
+                keys = {key: db[key]}
+                print("Keys dict: {}".format(keys))
+                aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, **keys)
+                
+            for k in ['files', 'override']:
+                rem_from_keys(k)
                 
     elif action == "control":
         if len(args.action) < 4:

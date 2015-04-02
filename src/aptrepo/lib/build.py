@@ -47,16 +47,17 @@ def create_deb_struct(path, pkgname, **kwargs):
     
     copypath = os.path.join(path, pkgname, tmpdir)
     os.makedirs(os.path.join(copypath, 'DEBIAN'), exist_ok=True)
-    for src, dst in kwargs.get('files', {}).items():
-        # TODO: blacklist file types and folders, use os.walk
-        if os.path.isdir(src):
-            #print("Copy tree {}, {}".format(src, os.path.join(path, pkgname, tmpdir, dst)))
-            copytree(src, os.path.join(path, pkgname, tmpdir, dst))
-            
-        else:
-            dstpath = os.path.join(path, pkgname, tmpdir, *dst.split(os.sep)[:-1])
-            os.makedirs(dstpath, exist_ok=True)
-            shutil.copy2(src, os.path.join(path, pkgname, tmpdir, dst))
+    for deploykeys in ['files', 'override']:
+        for src, dst in kwargs.get(deploykeys, {}).items():
+            # TODO: blacklist file types and folders, use os.walk
+            if os.path.isdir(src):
+                #print("Copy tree {}, {}".format(src, os.path.join(path, pkgname, tmpdir, dst)))
+                copytree(src, os.path.join(path, pkgname, tmpdir, dst))
+                
+            else:
+                dstpath = os.path.join(path, pkgname, tmpdir, *dst.split(os.sep)[:-1])
+                os.makedirs(dstpath, exist_ok=True)
+                shutil.copy2(src, os.path.join(path, pkgname, tmpdir, dst))
         
     return tmpdir
     
