@@ -27,7 +27,7 @@ from aptrepo.lib.arch import arch_dir, get_arch, arch
 import aptrepo.lib.db
 import aptrepo.lib.build
 
-ACTIONS = ["create", "delete", "modify", "add", "remove", "rem", "clean", "override", 
+ACTIONS = ["create", "delete", "add", "remove", "rem", "clean", "override", 
            "update", "build", "valid", "info", "licenses", "sections", "help", 
            "control", "dup", "duplicate"]
 
@@ -47,8 +47,6 @@ def print_help():
         print("        Names cannot start with digits.")
         print()
         print("delete: ")
-        print()
-        print("modify: ")
         print()
         print("update: ")
         print()
@@ -74,7 +72,6 @@ def print_help():
 # NOTE: Anytime a package is updated, it must update the gpg file
             
 if __name__ == "__main__":
-
     # --> Start Command Line Argument parsing
     parser = argparse.ArgumentParser(description="Apt Package Management Tool",
                                      usage="%(prog)s package-name action (optional action args) [cli options]")
@@ -176,7 +173,8 @@ if __name__ == "__main__":
                 suggests=[],
                 section="misc",
                 set_version="0.1")
-            db.write(**opts)
+            db.update(**opts)
+            db.write()
             print("Creating {} Package".format(pkgname))
             
         else:
@@ -203,9 +201,6 @@ if __name__ == "__main__":
         else:
             sys.stderr.write("Warning: Directory {} does not exist.\n".format(pkgname))
             sys.exit(2)
-        
-    elif action == "modify":
-        print("TODO: Go through arguments and modify ones that have changed, or rewrite")
         
     elif action == "add":
         if len(args.action) != 4:
@@ -311,8 +306,10 @@ if __name__ == "__main__":
             sys.stderr.write("Warning: {} is not a debian package directory.\n".format(pkgname))
         
     elif action == "update":
-        if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
-            aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, **opts)
+        if db.validate():
+            print(vars(args))
+            db.update(**opts)
+            db.write()
             print("Updating {}...".format(pkgname))
             
         else:
@@ -322,11 +319,8 @@ if __name__ == "__main__":
         print('\n'.join(aptrepo.lib.build.SECTIONS))
         
     elif action == "info":
-        if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
-            print(json.dumps(aptrepo.lib.db.entire_db(opts.get('directory'), pkgname), default=str,
-                             sort_keys=True,
-                             indent=4,
-                             separators=(',', ': ',)))
+        if db.validate():
+            print(db.json())
         
     elif action == "clean":
         # Remove all files from a package
