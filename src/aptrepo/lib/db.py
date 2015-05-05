@@ -12,10 +12,10 @@ import socket
 # Define how configparser values get placed back into python objects here:
 LEGEND = {
     'Package': {
-        'set_version': lambda x: int(x),
+        'set_version': lambda x: str(x),
         'provides': lambda x: x.split(','),
         'directory': lambda x: os.path.join(x),
-        'is_essential': lambda x: x == "True",
+        'is_essential': lambda x: x == "true",
         'desc': lambda x: str(x),
         'description': lambda x: '\n . \n'.join(x.split(' . ')),
         'depends': lambda x: x.split(','),
@@ -24,7 +24,7 @@ LEGEND = {
         'architecture': lambda x: x.split(',')
         },
     'Build': {
-        'profile': lambda x: x.split(',')
+        'profiles': lambda x: x.split(',')
         },
     'Override': lambda x, y: {x: y},
     'Files': lambda x, y: {x: y},
@@ -98,7 +98,6 @@ class PackageDB():
         for k, v in kwargs.items():
             for s in self.SECTIONS:
                 if k in self.db[s] and not v is None:
-                    print("Updating key {}".format(k))
                     self.db[s][k] = v
     
     def read(self, path, pkgname):
@@ -109,11 +108,10 @@ class PackageDB():
         for section in self.SECTIONS:
             for key in config[section]:
                 if not isinstance(LEGEND[section], dict):
-                    print(LEGEND[section])
                     self.db[section].update(LEGEND[section](key, config[section][key]))
                     
                 else:
-                    self.db[section][key] = config[section][key]
+                    self.db[section][key] = LEGEND[section][key](config[section][key])
                                
     def validate(self):
         config = configparser.ConfigParser()

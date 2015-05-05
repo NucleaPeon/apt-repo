@@ -294,9 +294,8 @@ if __name__ == "__main__":
         aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, control=opts['control'])
     
     elif action == "build":
-        if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
-            db = aptrepo.lib.db.entire_db(opts.get('directory'), pkgname)
-            retcode = aptrepo.lib.build.build_package(opts.get('directory'), pkgname, **opts)
+        if db.validate():
+            retcode = aptrepo.lib.build.build_package(opts.get('directory'), pkgname, **db.db)
             if not retcode == 0:
                 sys.stderr.write("Error: Package Building Failed, control file may be bad\n")
                 # TODO: more information
@@ -307,10 +306,9 @@ if __name__ == "__main__":
         
     elif action == "update":
         if db.validate():
-            print(vars(args))
             db.update(**opts)
-            db.write()
             print("Updating {}...".format(pkgname))
+            db.write()
             
         else:
             sys.stderr.write("Warning: {} is not a debian package directory.\n".format(opts.get('directory')))
@@ -324,8 +322,9 @@ if __name__ == "__main__":
         
     elif action == "clean":
         # Remove all files from a package
-        if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
-            aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, files={}, control={})
+        if db.validate():
+            db.update(files={}, control={})
+            db.write()
             
         else:
             sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))

@@ -47,7 +47,7 @@ def create_deb_struct(path, pkgname, **kwargs):
     
     copypath = os.path.join(path, pkgname, tmpdir)
     os.makedirs(os.path.join(copypath, 'DEBIAN'), exist_ok=True)
-    for deploykeys in ['files', 'override']:
+    for deploykeys in ['Files', 'Override']:
         for src, dst in kwargs.get(deploykeys, {}).items():
             # TODO: blacklist file types and folders, use os.walk
             if os.path.isdir(src):
@@ -74,11 +74,9 @@ def build_package(path, pkgname, **kwargs):
                   If directory: saves package based on control file data (name_ver_arch.deb)
                   If filename: save package file to filename
     """
-    db = aptrepo.lib.db.read_keys(path, pkgname, *aptrepo.lib.db.keys(path, pkgname))
-    db.update(kwargs)
-    tmpdir = create_deb_struct(path, pkgname, **db)
+    tmpdir = create_deb_struct(path, pkgname, **kwargs)
     remove_non_deployables(tmpdir, *REMOVE_FILES_FOLDERS)
-    write_control_file(tmpdir, pkgname, **db)
+    write_control_file(tmpdir, pkgname, **kwargs)
     proc = Popen(['dpkg-deb', '--build', os.path.join(path, tmpdir), "."])
     proc.communicate()
     shutil.rmtree(tmpdir)
@@ -113,7 +111,7 @@ def write_control_file(path, pkgname, **kwargs):
     umask = os.umask(0o022)
     # TODO Detect if package has a database file and use those
     # Create control file with any data we have to work with:
-    controls = kwargs.get('control', {})
+    controls = kwargs.get('Control', {})
     for k, v in controls.items():
         if os.path.exists(v) and os.path.isfile(v):
             print("\tGenerating {}".format(k))
@@ -123,32 +121,33 @@ def write_control_file(path, pkgname, **kwargs):
     # Only write this control file if no other "control" file is specified
     # as a control option
     if controls.get('controls', None) is None:
+
         with open(os.path.join(path, "DEBIAN", "control"), 'w') as cf:
             cf.write("Package: {}\n".format(pkgname))
-            cf.write("Version: {}\n".format(kwargs.get('set_version', 0.1)))
-            cf.write("Architecture: {}\n".format(' '.join(kwargs.get('architecture'))))
-            cf.write("Section: {}\n".format(kwargs.get('section') if kwargs.get('section') in SECTIONS else "misc"))
-            cf.write("Essential: {}\n".format("yes" if kwargs.get('essential') else "no"))
-            if kwargs.get('depends'):
-                cf.write("Depends: {}\n".format(', '.join(kwargs.get('depends'))))
-                
-            if kwargs.get('recommends'):
-                cf.write("Recommends: {}\n".format(', '.join(kwargs.get('recommends'))))
+            pkgkw = kwargs.get('Package', {})
+            cf.write("Version: {}\n".format(pkgkw.get('set_version', 0.1)))
+            cf.write("Architecture: {}\n".format(', '.join(pkgkw.get('architecture'))))
+            cf.write("Section: {}\n".format(pkgkw['section'] if pkgkw.get('section') in SECTIONS else "misc"))
+            cf.write("Essential: {}\n".format("yes" if pkgkw.get('essential') else "no"))
             
-            if kwargs.get('suggests'):
-                cf.write("Suggests: {}\n".format(', '.join(kwargs.get('suggests'))))
-            
-            cf.write("Provides: {}\n".format(', '.join(kwargs.get('provides', [pkgname]))))
+            for lst in ['depends', 'recommends', 'suggests', 'replaces', 'provides']:
+                if pkgkw.get(lst):
+                    cf.write("{}: {}\n".format(lst.title(), ', '.join(pkgkw.get(lst))))
+        
             size = Decimal(pkg_installed_size(path) / 1024).quantize(Decimal('1.'), rounding=ROUND_UP)
             cf.write("Installed-Size: {}\n".format(size))
-            if not kwargs.get('homepage') is None:
-                cf.write("Homepage: {}\n".format(kwargs.get('homepage')))
-            cf.write("Package-Type: deb\n")
-            if not kwargs.get('maintainer') is None:
-                cf.write("Maintainer: {}\n".format(', '.join(kwargs.get('maintainer'))))
                 
-            cf.write("Description: {}\n".format(kwargs.get('desc', 'Description Not Set')))
-            for d in kwargs.get('description', ['...']):
+            pkgkw = kwargs.get('User', {})
+            if not pkgkw.get('homepage') is None:
+                cf.write("Homepage: {}\n".format(pkgkw.get('homepage')))
+            cf.write("Package-Type: deb\n")
+            
+            if not pkgkw.get('maintainer') is None:
+                cf.write("Maintainer: {}\n".format(', '.join(pkgkw.get('maintainer'))))
+            
+            cf.write("Description: {}\n".format(pkgkw.get('desc', 'Description Not Set')))
+            
+            for d in pkgkw.get('description', ['...']):
                 cf.write(" {}\n".format(d))
 
 def remove_non_deployables(toplevel, *non_deployables):
