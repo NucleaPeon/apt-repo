@@ -21,8 +21,6 @@ import datetime
 import socket
 import shutil
 from subprocess import PIPE, Popen
-import configparser
-import shelve
 import json
 # local apt-repo modules
 from aptrepo.lib.arch import arch_dir, get_arch, arch
@@ -31,7 +29,7 @@ import aptrepo.lib.build
 
 ACTIONS = ["create", "delete", "modify", "add", "remove", "rem", "clean", "override", 
            "update", "build", "valid", "info", "licenses", "sections", "help", 
-           "control"]
+           "control", "dup", "duplicate"]
 
 DEBIAN_FILES = ['postinst', 'postrm', 'preinst', 'prerm', 'control']
 
@@ -66,6 +64,8 @@ def print_help():
         print()
         print("valid:  ")
         print()
+        print("duplicate: Copies and refactors a package's folder and database to reflect a new name.")
+        print()
         print("info:   ")
         print()
         print("licenses: ")
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     # before they are made live. Config file options can make this automatic, or supply --publish
     # option (-p) to each package command
     parser.add_argument('action', nargs="*", default=None,
-                       help="Perform an action: create, delete, modify, update, build, valid, info, licenses, help")
+                       help="Perform an action: {}".format(', '.join(ACTIONS)))
     parser.add_argument('--directory', '-d', nargs=1, default=os.path.abspath(os.getcwd()),
                         help="Specify directory to host debian package data")
     parser.add_argument('--author', nargs='*',
@@ -137,7 +137,28 @@ if __name__ == "__main__":
     
     # Use sane defaults as default arguments or the package database.
     # Only command line paramters that are not None will override these.
-    opts = dict(set_version="0.1",
+    opts = vars(args)
+    
+    if not isinstance(opts.get('control'), dict):
+        # Upgrade from 0.9.3 to 0.9.4 without breaking for control files, remove later
+        opts['control'] = {}
+        
+    if opts.get('override') is None:
+        opts['override'] = {}
+    
+    db = aptrepo.lib.db.PackageDB(opts.get('directory'), pkgname, **opts)
+            
+    if not action in ACTIONS:
+        sys.stderr.write("Invalid action: {}.\nAvailable actions: {}\n".format(
+            action, ', '.join(ACTIONS)))
+        sys.exit(1)
+
+    if action == "create":
+        umask = os.umask(0o022)
+        
+        if not os.path.exists(os.path.join(opts.get('directory'), pkgname)):
+            os.makedirs(os.path.join(opts.get('directory'), pkgname), exist_ok=True)
+            opts.update(
                 provides=[pkgname.lower()],
                 control={},
                 directory=os.path.abspath(os.getcwd()),
@@ -153,32 +174,9 @@ if __name__ == "__main__":
                 depends=[],
                 recommends=[],
                 suggests=[],
-                section="misc") if not aptrepo.lib.db.validate_db(args.directory, pkgname) else \
-                    aptrepo.lib.db.entire_db(args.directory, pkgname)
-                
-    if not isinstance(opts.get('control'), dict):
-        # Upgrade from 0.9.3 to 0.9.4 without breaking for control files, remove later
-        opts['control'] = {}
-        
-    if opts.get('override') is None:
-        opts['override'] = {}
-        
-    
-    for k, v in vars(args).items():
-        if not v is None:
-            opts[k] = v
-            
-    if not action in ACTIONS:
-        sys.stderr.write("Invalid action: {}.\nAvailable actions: {}\n".format(
-            action, ', '.join(ACTIONS)))
-        sys.exit(1)
-
-    if action == "create":
-        umask = os.umask(0o022)
-        
-        if not os.path.exists(os.path.join(opts.get('directory'), pkgname)):
-            os.makedirs(os.path.join(opts.get('directory'), pkgname), exist_ok=True)
-            aptrepo.lib.db.init_db(opts.get('directory'), pkgname, **opts)
+                section="misc",
+                set_version="0.1")
+            db.write(**opts)
             print("Creating {} Package".format(pkgname))
             
         else:
@@ -194,7 +192,7 @@ if __name__ == "__main__":
         d = os.path.join(opts.get('directory'), pkgname)
         if os.path.exists(d) and os.path.isdir(d):
             # Do a quick check for package confirmation
-            if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
+            if db.validate():
                 umask = os.umask(0o022)
                 print("Removing {} Package".format(pkgname))
                 shutil.rmtree(d)
@@ -337,6 +335,15 @@ if __name__ == "__main__":
             
         else:
             sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
+            
+    elif action.startswith("dup") if not action is None else "":
+        if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
+            umask = os.umask(0o022)
+            for d in args.action[2:]:
+                if not os.path.exists(os.path.join(opts.get('directory'), d)):
+                    os.makedirs(os.path.join(opts.get('directory'), d), exist_ok=True)
+                    aptrepo.lib.db.duplicate(opts.get('directory'), pkgname, d, **opts)
+                    print("Duplicating {} Package as {}".format(pkgname, d))
         
     elif action == "licenses":
         print()

@@ -10,6 +10,11 @@ def remove_svn_dirs(path):
                 
                 
 def write_into(src, dst, overwrite=True, symlinks=False):
+    """
+    :Description:
+        Goes through a source and copies recursively all files and folders,
+        creating or overwriting files at the dst destination if specified.
+    """
     src = os.path.abspath(src)
     toplevel = src.split(os.sep)[-1]
     target = os.path.join(dst, toplevel)
