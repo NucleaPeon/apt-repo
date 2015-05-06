@@ -201,7 +201,7 @@ if __name__ == "__main__":
             os.makedirs(os.path.join(opts.get('directory'), pkgname), exist_ok=True)
             opts.update(
                 provides=[pkgname.lower()],
-                replaces=[]
+                replaces=[],
                 control={},
                 directory=os.path.abspath(os.getcwd()),
                 is_essential=False,
