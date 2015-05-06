@@ -105,6 +105,7 @@ if __name__ == "__main__":
                         "this doesn't apply")
     parser.add_argument('--maintainer', nargs='*', help="Set the maintainer(s) for all packages in format: " 
                         "'full name <email@this.com>'")
+    parser.add_argument('--replaces', nargs='*', help="Forces removal of package(s) before this is installed")
     parser.add_argument('--homepage', nargs=1, help="Set the homepage in the control file.")
     parser.add_argument('--license', '-l', nargs=1, help="Specify license to associate with package")
     parser.add_argument('--set-version', nargs='?', help="Set the version string for all packages to this")
@@ -200,6 +201,7 @@ if __name__ == "__main__":
             os.makedirs(os.path.join(opts.get('directory'), pkgname), exist_ok=True)
             opts.update(
                 provides=[pkgname.lower()],
+                replaces=[]
                 control={},
                 directory=os.path.abspath(os.getcwd()),
                 is_essential=False,

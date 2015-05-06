@@ -270,7 +270,7 @@ if __name__ == "__main__":
                             
         if modifiedrepos:
             for mr in modifiedrepos:
-                Packages_gz(mr)
+                Packages_gz(os.path.join(opts.get('directory'), opts.get('toplevel')), mr)
         
     elif action == "haspkg":
         # Initialize search results
