@@ -13,6 +13,7 @@ import importlib
 from decimal import *
 import aptrepo.lib.db
 import traceback
+import logging
 
 REMOVE_FILES_FOLDERS = ['__pycache__', '.svn']
 
@@ -23,6 +24,7 @@ SECTIONS = ["admin", "cli-mono", "comm", "database", "debug", "devel", "doc", "e
     "tex", "text", "utils", "vcs", "video", "web", "x11", "xfce", "zope"]
 
 def copytree(src, dst, write_into=True):
+    logging.debug(__name__)
     os.makedirs(dst, exist_ok=True)
     common = ''
     newdst = ''
@@ -42,6 +44,7 @@ def copytree(src, dst, write_into=True):
                 
 
 def create_deb_struct(path, pkgname, **kwargs):
+    logging.debug(__name__)
     tmpdir = tempfile.mkdtemp(suffix='tmp', prefix=pkgname, 
                               dir=os.path.join(path, pkgname))
     
@@ -58,11 +61,12 @@ def create_deb_struct(path, pkgname, **kwargs):
                 dstpath = os.path.join(path, pkgname, tmpdir, *dst.split(os.sep)[:-1])
                 os.makedirs(dstpath, exist_ok=True)
                 shutil.copy2(src, os.path.join(path, pkgname, tmpdir, dst))
-        
+                
     return tmpdir
     
 
 def build_package(path, pkgname, **kwargs):
+    logging.debug(__name__)
     """
     TODO:
         - Copy package into a temporary directory where it can be built either in a 
@@ -84,6 +88,7 @@ def build_package(path, pkgname, **kwargs):
     return proc.returncode
 
 def pkg_installed_size(path, append_bytes=None, ignored_files=['DEBIAN']):
+    logging.debug(__name__)
     """
     FIXME: Doesn't calculate size recursively
     :Description:
@@ -108,6 +113,7 @@ def pkg_installed_size(path, append_bytes=None, ignored_files=['DEBIAN']):
     return bytecount
 
 def write_control_file(path, pkgname, **kwargs):
+    logging.debug(__name__)
     umask = os.umask(0o022)
     # TODO Detect if package has a database file and use those
     # Create control file with any data we have to work with:
@@ -151,6 +157,7 @@ def write_control_file(path, pkgname, **kwargs):
                 cf.write(" {}\n".format(d))
 
 def remove_non_deployables(toplevel, *non_deployables):
+    logging.debug(__name__)
     """
     Non Deployables are files and folders that no one wants deployed on the
     target system. Examples of these are "__pycache__" folders from python,

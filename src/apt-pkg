@@ -20,6 +20,8 @@ import argparse, sys, os
 import datetime
 import socket
 import shutil
+import shelve
+import configparser
 from subprocess import PIPE, Popen
 import json
 # local apt-repo modules
@@ -142,9 +144,50 @@ if __name__ == "__main__":
         
     if opts.get('override') is None:
         opts['override'] = {}
+        
+        
+    # Won't be able to read old shelve db, fails read, leaves us with initial db settings
+    print("Checking for previous gen database structure...")
+    db = None
+    try:
+        # Check if valid first
+        config = configparser.ConfigParser()
+        config.read(os.path.join(opts.get('directory'), pkgname, pkgname))
+        config['Package']['directory']
+        print("\tNo migration required")
+        db = aptrepo.lib.db.PackageDB(opts.get('directory'), pkgname, **opts)
     
-    db = aptrepo.lib.db.PackageDB(opts.get('directory'), pkgname, **opts)
+    except:
+        print("\tDatabase is not in config file format")
+        try:
+            # Do a quick check to ensure it's shelve db
+            with shelve.open(os.path.join(opts.get('directory'), pkgname, pkgname)) as dbf:
+                print("\tMigrating database to configuration file format")
+                
+            shutil.move(os.path.join(opts.get('directory'), pkgname, pkgname),
+                        os.path.join(opts.get('directory'), pkgname, pkgname + ".tmp"))
+                        
+            with shelve.open(os.path.join(opts.get('directory'), pkgname, 
+                                        pkgname + ".tmp")) as dbf:
+                newkwargs = {x: y for x, y in dbf.items()}
+                db = aptrepo.lib.db.PackageDB(opts.get('directory'), pkgname, **newkwargs)
             
+            os.remove(os.path.join(opts.get('directory'), pkgname, pkgname + ".tmp"))
+            db.write()
+                
+        except Exception as E:
+            print("\tCheck complete, Errors in migration.")
+        
+        finally:
+            db = aptrepo.lib.db.PackageDB(opts.get('directory'), pkgname, **opts)
+            if db is None:
+                sys.stderr.write("Fatal Error: apt-pkg failed migration, generation and/or reading of its own database")
+                sys.exit(2)
+                
+            print("\tMigration procedure complete.")
+            
+    print()
+        
     if not action in ACTIONS:
         sys.stderr.write("Invalid action: {}.\nAvailable actions: {}\n".format(
             action, ', '.join(ACTIONS)))

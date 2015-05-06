@@ -16,6 +16,19 @@ this project.
 News
 ====
 
+* Version 0.9.8 is the last of the stable gdbm/shelve database packages.
+  Version 0.10.x will now use the easier-to-manage configparser database
+  which can be edited by hand and viewable in a text editor.
+
+  The big issue with this so far is that there is a built-in migration
+  tool that automatically runs in the 0.10.0 version every time an action
+  is performed. 0.10.x series will have this until 0.11.x is released, in
+  which case use of gdbm databases will be fully deprecated and unsupported.
+
+  Sections are set in stone and keys in the configparser db are case-sensitive.
+  This may cause some issues on Windows machines, which are not currently
+  supported.
+
 * Version 0.9.4 now includes the ability to add and remove `DEBIAN/` scripts
   like postinst and prerm using similar functionality as adding files.
 
@@ -46,8 +59,3 @@ Generate your gpg key for your repositories using
 
 Select RSA and a minimum of 2048 for encryption.
 
-
-TODO
-====
-
-* Store relative or absolute paths in the database to package files to make it portable. Right now, the path the user enters is what is the key. If they enter an absolute and relative path for the same files, the latter add command is what overrides the former. Instead, --relpath or --abspath will transform all added and removed file paths into a relative or absolute path respectively so no collisions occur. Use relpath for portable package databases and abspath for packages that may move from folder to folder yet require same files.

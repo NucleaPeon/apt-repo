@@ -66,11 +66,17 @@ class PackageDB():
         
         # If a database file already exists, overwrite it with saved information
         if os.path.exists(os.path.join(path, pkgname, pkgname)):
-            print("Reading existing database.")
-            self.read(path, pkgname)
+            print("\tReading existing database...")
+            try:
+                self.read(path, pkgname)
+                
+            except:
+                print("Found configuration file, but it cannot be read")
+                
                          
     def write(self):
         config = configparser.ConfigParser()
+        config.optionxform = str
         for k, v in self.db.items():
             if not k in config:
                 config[k] = {}
@@ -103,6 +109,7 @@ class PackageDB():
     def read(self, path, pkgname):
         """ Reads sections found in SECTIONS """
         config = configparser.ConfigParser()
+        config.optionxform = str
         config.read(os.path.join(path, pkgname, pkgname))
         
         for section in self.SECTIONS:
@@ -115,16 +122,18 @@ class PackageDB():
                                
     def validate(self):
         config = configparser.ConfigParser()
+        config.optionxform = str
         config.read(os.path.join(self.db['Package']['directory'], self.pkgname, self.pkgname))
         for s in config.sections():
             if not s in self.SECTIONS:
+                print("Failed to validate section {}".format(s))
                 return False
             
         return True
     
     def duplicate(self, path, pkgname):
         ''' Includes some refactoring '''
-        print("duplicate db")
+        raise NotImplementedError(__name__)
     
     def json(self):
         return json.dumps(self.db, default=str,
@@ -133,5 +142,42 @@ class PackageDB():
                              separators=(',', ': ',))
     
     def __str__(self):
-        return str(self.DB_STRUCT)
+        return str(self.db)
+
+def __keys_to_conf__(dbitems, newdb, sections):
+    db = newdb.db
+    for key, val in dbitems:
+        for section in sections:
+            if isinstance(db[section], dict):
+                db[section].update(dict(key=val))
+                break
+                
+            else:
+                if key in db[section]:
+                    if isinstance(val, list):
+                        val = ', '.join(val)
+                        
+                    elif isinstance(val, bool):
+                        val = str(val) == "True"
+                        
+                    if val is None or not val:
+                        val = ''
+
+                    db[section][key] = val
+                    break
+                
+    return newdb
+    
+def migrate(old_db_filehandle, newdb):
+    """
+    Migrate from old Database shelve structure to a JSON in the format of new db structure
+    using an instance of PackageDB (newdb)
+    """
+    if isinstance(newdb, PackageDB):
+        return __keys_to_conf__(old_db_filehandle.items(), newdb, newdb.SECTIONS)
+    
+    else:
+        raise ValueError("Migration failed to translate shelve db into new configparser db")
+        
+    
     
