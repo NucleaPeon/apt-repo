@@ -100,28 +100,48 @@ def build_ipk_package(path, pkgname, **kwargs):
     tmpdir = create_ipk_struct(path, pkgname, **kwargs)
     remove_non_deployables(tmpdir, *REMOVE_FILES_FOLDERS)
     write_ipk_control_file(tmpdir, pkgname, **kwargs)
-    write_ipk_archives(tmpdir, pkgname, **kwargs)
+    retcode = write_ipk_archives(tmpdir, pkgname, **kwargs)
+    shutil.rmtree(tmpdir)
+    return retcode
     
 def write_ipk_archives(path, pkgname, **kwargs):
     logging.debug(__name__)
     try:
         import tarfile
-        with tarfile.open(name="control.tar.gz", mode='w:gz') as tf:
+        with tarfile.open(name=os.path.join(path, "control.tar.gz"), mode='w:gz') as tf:
             for f in os.listdir(os.path.join(path, 'CONTROL')):
                 tf.add(os.path.join(path, 'CONTROL', f), arcname=f)
                 
-        with tarfile.open(name="data.tar.gz", mode='w:gz') as tf:
+        with tarfile.open(name=os.path.join(path, "data.tar.gz"), mode='w:gz') as tf:
             for f in os.listdir(os.path.join(path, 'DATA')):
                 tf.add(os.path.join(path, 'DATA', f), arcname=f)
                 
+        with open(os.path.join(path, 'debian-binary'), 'w') as f:
+            f.write('2.0')
             
+        for a in kwargs['Package']['architecture']:
+            with tarfile.open(name=os.path.join(
+                kwargs['Package'].get('directory', os.getcwd()), "{}_{}_{}.ipk".format(
+                    pkgname, kwargs['Package']['set_version'],
+                    a)), 
+                mode='w:gz') as tf:
+                
+                for files in ['control.tar.gz', 'data.tar.gz', 'debian-binary']:
+                    tf.add(os.path.join(path, files), arcname=files)
+            
+        return 0
         
-    except ImportError:
+    except ImportError as iE:
         logging.error("Tarfile module not installed, failed to create archives. Build Failed.")
         sys.stderr.write("Tarfile module not installed, failed to create archives. Build Failed.")
+        return 1
+    
+    except Exception as E:
+        logging.error("Error occured: {}".format(E))
+        sys.stderr.write("Error occured: {}".format(E))
+        return 2
 
 def build_deb_package(path, pkgname, **kwargs):
-    logging.debug(__name__)
     """
     TODO:
         - Copy package into a temporary directory where it can be built either in a 
@@ -133,6 +153,7 @@ def build_deb_package(path, pkgname, **kwargs):
                   If directory: saves package based on control file data (name_ver_arch.deb)
                   If filename: save package file to filename
     """
+    logging.debug(__name__)
     tmpdir = create_deb_struct(path, pkgname, **kwargs)
     remove_non_deployables(tmpdir, *REMOVE_FILES_FOLDERS)
     write_deb_control_file(tmpdir, pkgname, **kwargs)

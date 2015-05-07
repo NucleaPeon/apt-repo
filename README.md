@@ -13,8 +13,11 @@ This is not an official apt software release. It is a custom add-on. If
 the folks at Debian decide to use apt-repo for their work, I will rename
 this project.
 
+
 News
 ====
+
+* Version 0.10.0 is broken, use 0.10.1. Also: ipk packages are being supported.
 
 * Version 0.9.8 is the last of the stable gdbm/shelve database packages.
   Version 0.10.x will now use the easier-to-manage configparser database
@@ -33,7 +36,7 @@ News
   like postinst and prerm using similar functionality as adding files.
 
   `apt-pkg [package name] control [file type: postinst or postrm or preinst, etc.] [path/to/script] (options if any)`
-  
+
    `apt-pkg [package name] info` should show control as an attribute if your version supports it. Older packages
    will automatically include an empty control file attribute when upgrading. Even if the control attribute is
    empty, by default the control file at a minimum will be written to a package.
@@ -44,6 +47,13 @@ News
 
    Yes, you can specify a file of any extension and name and it gets written AS `control` or `postrm` or whatever file you specify.
 
+
+Gotchas
+=======
+
+* Currently specifying multiple architectures for a package may break the build.
+
+ 
 Getting Started
 ===============
 
