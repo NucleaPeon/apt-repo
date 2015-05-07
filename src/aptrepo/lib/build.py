@@ -71,16 +71,17 @@ def create_ipk_struct(path, pkgname, **kwargs):
     copypath = os.path.join(path, pkgname, tmpdir)
     os.makedirs(os.path.join(copypath, 'CONTROL'), exist_ok=True)
     for deploykeys in ['Files', 'Override']:
-    # TODO: blacklist file types and folders, use os.walk
-        if os.path.isdir(src):
-            #print("Copy tree {}, {}".format(src, os.path.join(path, pkgname, tmpdir, dst)))
-            copytree(src, os.path.join(path, pkgname, tmpdir, dst))
-            
-        else:
-            dstpath = os.path.join(path, pkgname, tmpdir, *dst.split(os.sep)[:-1])
-            os.makedirs(dstpath, exist_ok=True)
-            shutil.copy2(src, os.path.join(path, pkgname, tmpdir, dst))
-            
+        for src, dst in kwargs.get(deploykeys, {}).items():
+        # TODO: blacklist file types and folders, use os.walk
+            if os.path.isdir(src):
+                #print("Copy tree {}, {}".format(src, os.path.join(path, pkgname, tmpdir, dst)))
+                copytree(src, os.path.join(path, pkgname, tmpdir, dst))
+                
+            else:
+                dstpath = os.path.join(path, pkgname, tmpdir, *dst.split(os.sep)[:-1])
+                os.makedirs(dstpath, exist_ok=True)
+                shutil.copy2(src, os.path.join(path, pkgname, tmpdir, dst))
+                
     return tmpdir
     
 def build_package(path, pkgname, **kwargs):
@@ -98,7 +99,23 @@ def build_ipk_package(path, pkgname, **kwargs):
     logging.debug(__name__)
     tmpdir = create_ipk_struct(path, pkgname, **kwargs)
     remove_non_deployables(tmpdir, *REMOVE_FILES_FOLDERS)
-    write_ipk_control_file(tmpdir, pkgname, **Kwargs)
+    write_ipk_control_file(tmpdir, pkgname, **kwargs)
+    write_ipk_archives(tmpdir, pkgname, **kwargs)
+    
+def write_ipk_archives(path, pkgname, **Kwargs):
+    logging.debug(__name__)
+    try:
+        import tarfile
+        with tarfile.open(name="control.tar.gz", mode='w:gz') as tf:
+            for f in os.listdir(os.path.join(path, 'CONTROL')):
+                tf.add(os.path.join(path, 'CONTROL', f), arcname=f)
+                
+        #with tarfile.open(name="data.tar.gz", mode='w:gz') as tf:
+            
+        
+    except ImportError:
+        logging.error("Tarfile module not installed, failed to create archives. Build Failed.")
+        sys.stderr.write("Tarfile module not installed, failed to create archives. Build Failed.")
 
 def build_deb_package(path, pkgname, **kwargs):
     logging.debug(__name__)
@@ -122,31 +139,6 @@ def build_deb_package(path, pkgname, **kwargs):
         
     return proc.returncode
 
-def pkg_installed_size(path, append_bytes=None, ignored_files=['DEBIAN']):
-    logging.debug(__name__)
-    """
-    FIXME: Doesn't calculate size recursively
-    :Description:
-        Recursive method that aims to compile a total Installed-Size value
-        for the resulting control file.
-        Performs a quick check to ensure the DEBIAN folder is not included.
-    """
-    bytecount = 0 if append_bytes is None else append_bytes
-    if os.path.exists(path):        
-        if os.path.isdir(path):
-            for root, dirs, files in os.walk(path):
-                if root.split(os.sep)[-1] in ignored_files:
-                    continue
-                    
-                for f in files:
-                    bytecount += pkg_installed_size(os.path.join(root, f), bytecount) if \
-                        os.path.isdir(f) else os.path.getsize(os.path.join(root, f))
-            
-        else:
-            bytecount += os.path.getsize(path)
-    
-    return bytecount
-
 def write_ipk_control_file(path, pkgname, **kwargs):
     logging.debug(__name__)
     umask = os.umask(0o022)
@@ -161,12 +153,16 @@ def write_ipk_control_file(path, pkgname, **kwargs):
     # as a control option
     if controls.get('controls', None) is None:
         with open(os.path.join(path, "CONTROL", "control"), 'w') as cf:
-            cf.write("Package: {}\n".format(pkgname.replace("_", ""))
+            cf.write("Package: {}\n".format(pkgname.replace("_", "")))
             pkgkw = kwargs.get('Package', {})
             cf.write("Version: {}\n".format(str(pkgkw.get('set_version', "0.1")).replace("_", "")))
             cf.write("Architecture: {}\n".format(', '.join(pkgkw.get('architecture'))))
             if not pkgkw.get('maintainer') is None:
                 cf.write("Maintainer: {}\n".format(', '.join(pkgkw.get('maintainer'))))
+                
+            for lst in ['depends']: #, 'recommends', 'suggests', 'replaces', 'provides']:
+                if pkgkw.get(lst):
+                    cf.write("{}: {}\n".format(lst.title(), ' '.join(pkgkw.get(lst))))
             
             cf.write("Description: {}\n".format(pkgkw.get('desc', 'Description Not Set')))
 
@@ -228,3 +224,28 @@ def remove_non_deployables(toplevel, *non_deployables):
         for d in folders:
             if d in non_deployables:
                 shutil.rmtree(os.path.join(root, d))
+
+def pkg_installed_size(path, append_bytes=None, ignored_files=['DEBIAN']):
+    logging.debug(__name__)
+    """
+    FIXME: Doesn't calculate size recursively
+    :Description:
+        Recursive method that aims to compile a total Installed-Size value
+        for the resulting control file.
+        Performs a quick check to ensure the DEBIAN folder is not included.
+    """
+    bytecount = 0 if append_bytes is None else append_bytes
+    if os.path.exists(path):        
+        if os.path.isdir(path):
+            for root, dirs, files in os.walk(path):
+                if root.split(os.sep)[-1] in ignored_files:
+                    continue
+                    
+                for f in files:
+                    bytecount += pkg_installed_size(os.path.join(root, f), bytecount) if \
+                        os.path.isdir(f) else os.path.getsize(os.path.join(root, f))
+            
+        else:
+            bytecount += os.path.getsize(path)
+    
+    return bytecount
