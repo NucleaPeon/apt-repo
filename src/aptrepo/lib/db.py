@@ -20,6 +20,7 @@ LEGEND = {
         'description': lambda x: '\n . \n'.join([y.strip() for y in x.split(',')]),
         'depends': lambda x: [y.strip() for y in x.split(',')],
         'suggests': lambda x: [y.strip() for y in x.split(',')],
+        'replaces': lambda x: [y.strip() for y in x.split(',')],
         'section': lambda x: str(x),
         'architecture': lambda x: [y.strip() for y in x.split(',')]
         },
@@ -52,6 +53,7 @@ class PackageDB():
                 'description': kwargs.get('description', ''),
                 'depends': kwargs.get('depends', []),
                 'suggests': kwargs.get('suggests', []),
+                'replaces': kwargs.get('replaces', []),
                 'section': kwargs.get('section', "misc"),
                 'architecture': kwargs.get('architecture', arch())},
             'Build': {'profiles': ['deb']},
@@ -78,7 +80,7 @@ class PackageDB():
         config = configparser.ConfigParser()
         config.optionxform = str
         for k, v in self.db.items():
-            if not k in config:
+            if not k in config.sections():
                 config[k] = {}
                                 
             # section key-value pairs
@@ -96,6 +98,7 @@ class PackageDB():
                 
         with open(os.path.join(self.db['Package']['directory'], 
                                self.pkgname, self.pkgname), 'w') as f:
+            
             config.write(f)
             
             

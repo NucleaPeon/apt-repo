@@ -280,18 +280,15 @@ if __name__ == "__main__":
                 args.action[1]))
             sys.exit(6)
             
-        key = "override"
-        db = aptrepo.lib.db.read_keys(opts.get('directory'), pkgname, key)
-        if db[key] is None:
-            db[key] = {}
-            
+        db.read(opts.get('directory'), pkgname)
         correctpath = args.action[2]
         if os.path.isdir(correctpath):
             if not correctpath[-1] == os.sep:
                 correctpath = correctpath + os.sep
         
-        db[key][correctpath] = args.action[3]
-        aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, override=db[key])
+        
+        db.db['Override'].update({db[key][correctpath]: args.action[3]})
+        db.write()
         
     elif action.startswith("rem") if not action is None else "":
         if len(args.action) < 2:
@@ -300,6 +297,7 @@ if __name__ == "__main__":
             sys.exit(5)
         
         if db.validate():
+            db.read(opts.get('directory'), pkgname)
             def rem_from_keys(key):
                 db = aptrepo.lib.db.read_keys(opts.get('directory'), pkgname, key)
                 for rm in args.action[2:]:
@@ -308,12 +306,12 @@ if __name__ == "__main__":
                         if not correctpath[-1] == os.sep:
                             correctpath = correctpath + os.sep
                 
-                    if not db[key].get(correctpath) is None:
-                        del db[key][correctpath]
-                
-                keys = {key: db[key]}
-                print("Keys dict: {}".format(keys))
-                aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, **keys)
+                    for section in ['Files', 'Override']:
+                        if rm in config[section]:
+                            del config[section][rm]
+                            print("Removed {} from database".format(rm))
+                            
+                db.write()
                 
             for k in ['files', 'override']:
                 rem_from_keys(k)
@@ -335,8 +333,9 @@ if __name__ == "__main__":
         if not os.path.exists(controlfilepath) and os.path.isfile(controlfilepath):
             sys.stderr.write("{} not found or is a directory.\n".format(controlfilepath))
             
-        opts['control'][controlfile] = controlfilepath
-        aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, control=opts['control'])
+        db.read(opts.get('directory'), pkgname)
+        db.db['Control'].update({controlfile: controlfilepath})
+        db.write()
     
     elif action == "build":
         if db.validate():
@@ -368,7 +367,8 @@ if __name__ == "__main__":
     elif action == "clean":
         # Remove all files from a package
         if db.validate():
-            db.update(files={}, control={})
+            db.db['Files'] = {}
+            db.db['Control'] = {}
             db.write()
             
         else:
