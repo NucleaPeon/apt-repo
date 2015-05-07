@@ -156,6 +156,7 @@ if __name__ == "__main__":
         config['Package']['directory']
         print("\tNo migration required")
         db = aptrepo.lib.db.PackageDB(opts.get('directory'), pkgname, **opts)
+        print("TRY: " + db)
     
     except:
         print("\tDatabase is not in config file format")
@@ -186,7 +187,9 @@ if __name__ == "__main__":
                 
             print("\tMigration procedure complete.")
             
-    print()
+    finally:
+        if db is None:
+            print("DB IS NONE")
         
     if not action in ACTIONS:
         sys.stderr.write("Invalid action: {}.\nAvailable actions: {}\n".format(
@@ -252,21 +255,19 @@ if __name__ == "__main__":
                 args.action[1]))
             sys.exit(8)
         
-        if not aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
+        if not db.validate():
             sys.stderr.write("Not a recognized debian package directory: {}\n".format(
                 args.action[1]))
             sys.exit(6)
             
-        key = "files"
-        db = aptrepo.lib.db.read_keys(opts.get('directory'), pkgname, key)
+        db.read(opts.get('directory'), pkgname)
         correctpath = args.action[2]
         if os.path.isdir(correctpath):
             if not correctpath[-1] == os.sep:
                 correctpath = correctpath + os.sep
             
-            
-        db[key][correctpath] = args.action[3]
-        aptrepo.lib.db.write_keys(opts.get('directory'), pkgname, files=db[key])
+        db.db['Files'].update({correctpath: args.action[3]})
+        db.write()
         
     elif action == "override":
         if len(args.action) != 4:
@@ -274,7 +275,7 @@ if __name__ == "__main__":
                 args.action[1]))
             sys.exit(8)
         
-        if not aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
+        if not db.validate():
             sys.stderr.write("Not a recognized debian package directory: {}\n".format(
                 args.action[1]))
             sys.exit(6)
@@ -298,7 +299,7 @@ if __name__ == "__main__":
                 args.action[1]))
             sys.exit(5)
         
-        if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
+        if db.validate():
             def rem_from_keys(key):
                 db = aptrepo.lib.db.read_keys(opts.get('directory'), pkgname, key)
                 for rm in args.action[2:]:
@@ -374,7 +375,7 @@ if __name__ == "__main__":
             sys.stderr.write("Warning: {} is not a debian package directory.\n".format(d))
             
     elif action.startswith("dup") if not action is None else "":
-        if aptrepo.lib.db.validate_db(opts.get('directory'), pkgname):
+        if db.validate():
             umask = os.umask(0o022)
             for d in args.action[2:]:
                 if not os.path.exists(os.path.join(opts.get('directory'), d)):

@@ -70,17 +70,17 @@ def create_ipk_struct(path, pkgname, **kwargs):
                               dir=os.path.join(path, pkgname))
     copypath = os.path.join(path, pkgname, tmpdir)
     os.makedirs(os.path.join(copypath, 'CONTROL'), exist_ok=True)
+    os.makedirs(os.path.join(copypath, 'DATA'), exist_ok=True)
     for deploykeys in ['Files', 'Override']:
         for src, dst in kwargs.get(deploykeys, {}).items():
         # TODO: blacklist file types and folders, use os.walk
             if os.path.isdir(src):
-                #print("Copy tree {}, {}".format(src, os.path.join(path, pkgname, tmpdir, dst)))
-                copytree(src, os.path.join(path, pkgname, tmpdir, dst))
+                copytree(src, os.path.join(path, pkgname, tmpdir, 'DATA', dst))
                 
             else:
-                dstpath = os.path.join(path, pkgname, tmpdir, *dst.split(os.sep)[:-1])
+                dstpath = os.path.join(path, pkgname, tmpdir, 'DATA', *dst.split(os.sep)[:-1])
                 os.makedirs(dstpath, exist_ok=True)
-                shutil.copy2(src, os.path.join(path, pkgname, tmpdir, dst))
+                shutil.copy2(src, os.path.join(path, pkgname, tmpdir, 'DATA', dst))
                 
     return tmpdir
     
@@ -102,7 +102,7 @@ def build_ipk_package(path, pkgname, **kwargs):
     write_ipk_control_file(tmpdir, pkgname, **kwargs)
     write_ipk_archives(tmpdir, pkgname, **kwargs)
     
-def write_ipk_archives(path, pkgname, **Kwargs):
+def write_ipk_archives(path, pkgname, **kwargs):
     logging.debug(__name__)
     try:
         import tarfile
@@ -110,7 +110,8 @@ def write_ipk_archives(path, pkgname, **Kwargs):
             for f in os.listdir(os.path.join(path, 'CONTROL')):
                 tf.add(os.path.join(path, 'CONTROL', f), arcname=f)
                 
-        #with tarfile.open(name="data.tar.gz", mode='w:gz') as tf:
+        with tarfile.open(name="data.tar.gz", mode='w:gz') as tf:
+            pass
             
         
     except ImportError:
