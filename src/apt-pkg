@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 """
-Python-based debian package management system
+Python
+ased debian package management system
 
 :Description:
     This software project has no affiliation with Debian's Official apt system.
@@ -77,10 +78,6 @@ if __name__ == "__main__":
     # --> Start Command Line Argument parsing
     parser = argparse.ArgumentParser(description="Apt Package Management Tool",
                                      usage="%(prog)s package-name action (optional action args) [cli options]")
-    # publish command when invoked as the primary action will read in the transaction file
-    # of commands made (add, remove) in chronological order so users can see their changes
-    # before they are made live. Config file options can make this automatic, or supply --publish
-    # option (-p) to each package command
     parser.add_argument('action', nargs="*", default=None,
                        help="Perform an action: {}".format(', '.join(ACTIONS)))
     parser.add_argument('--directory', '-d', nargs=1, default=os.path.abspath(os.getcwd()),
@@ -117,6 +114,8 @@ if __name__ == "__main__":
                         "--description 'this is a long' 'description of my package'")
     parser.add_argument('--follow-symlinks', action="store_true", help="Allow symlinks to be added into packages",
                         default=None)
+    parser.add_argument('--profiles', '-p', help='Specify package formats to build packages into. "deb" if not set',
+                        nargs='*')
     parser.add_argument('--no-overwrite', action="store_false", default=None,
                         help="Prevents overwriting files when adding to a package | not implemented")
     # TODO: Change log methods
@@ -340,8 +339,8 @@ if __name__ == "__main__":
     
     elif action == "build":
         if db.validate():
-            retcode = aptrepo.lib.build.build_package(opts.get('directory'), pkgname, **db.db)
-            if not retcode == 0:
+            retcodes = aptrepo.lib.build.build_package(opts.get('directory'), pkgname, **db.db)
+            if not filter(lambda x: x == 0, retcodes):
                 sys.stderr.write("Error: Package Building Failed, control file may be bad\n")
                 # TODO: more information
                 sys.exit(7)

@@ -64,8 +64,22 @@ def create_deb_struct(path, pkgname, **kwargs):
                 
     return tmpdir
     
-
 def build_package(path, pkgname, **kwargs):
+    pkg_profiles = kwargs['Build'].get('profiles', ['deb'])
+    retcodes = []
+    if 'deb' in pkg_profiles:
+        retcodes.append(build_deb_package(path, pkgname, **kwargs))
+
+    if 'ipk' in pkg_profiles:
+        retcodes.append(build_ipk_package(path, pkgname, **kwargs))
+
+    return retcodes
+
+def build_ipk_package(path, pkgname, **kwargs):
+    logging.debug(__name__)
+    print("Build an ipk")
+
+def build_deb_package(path, pkgname, **kwargs):
     logging.debug(__name__)
     """
     TODO:
@@ -127,7 +141,6 @@ def write_control_file(path, pkgname, **kwargs):
     # Only write this control file if no other "control" file is specified
     # as a control option
     if controls.get('controls', None) is None:
-
         with open(os.path.join(path, "DEBIAN", "control"), 'w') as cf:
             cf.write("Package: {}\n".format(pkgname))
             pkgkw = kwargs.get('Package', {})
@@ -142,7 +155,6 @@ def write_control_file(path, pkgname, **kwargs):
         
             size = Decimal(pkg_installed_size(path) / 1024).quantize(Decimal('1.'), rounding=ROUND_UP)
             cf.write("Installed-Size: {}\n".format(size))
-                
             pkgkw = kwargs.get('User', {})
             if not pkgkw.get('homepage') is None:
                 cf.write("Homepage: {}\n".format(pkgkw.get('homepage')))

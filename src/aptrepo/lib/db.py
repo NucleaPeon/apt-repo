@@ -13,24 +13,24 @@ import socket
 LEGEND = {
     'Package': {
         'set_version': lambda x: str(x),
-        'provides': lambda x: x.split(','),
+        'provides': lambda x: [y.strip() for y in x.split(',')],
         'directory': lambda x: os.path.join(x),
         'is_essential': lambda x: x == "true",
         'desc': lambda x: str(x),
-        'description': lambda x: '\n . \n'.join(x.split(' . ')),
-        'depends': lambda x: x.split(','),
-        'suggests': lambda x: x.split(','),
+        'description': lambda x: '\n . \n'.join([y.strip() for y in x.split(',')]),
+        'depends': lambda x: [y.strip() for y in x.split(',')],
+        'suggests': lambda x: [y.strip() for y in x.split(',')],
         'section': lambda x: str(x),
-        'architecture': lambda x: x.split(',')
+        'architecture': lambda x: [y.strip() for y in x.split(',')]
         },
     'Build': {
-        'profiles': lambda x: x.split(',')
+        'profiles': lambda x: [y.strip() for y in x.split(',')]
         },
     'Override': lambda x, y: {x: y},
     'Files': lambda x, y: {x: y},
     'Control': lambda x, y: {x: y},
     'User': {'author': lambda x: str(x),
-             'maintainer': lambda x: x.split(','),
+             'maintainer': lambda x: [y.strip() for y in x.split(',')],
              'homepage': lambda x: str(x)}
     }
 
@@ -54,7 +54,7 @@ class PackageDB():
                 'suggests': kwargs.get('suggests', []),
                 'section': kwargs.get('section', "misc"),
                 'architecture': kwargs.get('architecture', arch())},
-            'Build': {'profiles': 'deb'},
+            'Build': {'profiles': ['deb']},
             'Override': {k: v for k, v in kwargs.get('override', {}).items()},
             'Files': {k: v for k, v in kwargs.get('files', {}).items()},
             'Control': {k: v for k, v in kwargs.get('control', {}).items()},
@@ -116,7 +116,7 @@ class PackageDB():
             for key in config[section]:
                 if not isinstance(LEGEND[section], dict):
                     self.db[section].update(LEGEND[section](key, config[section][key]))
-                    
+                
                 else:
                     self.db[section][key] = LEGEND[section][key](config[section][key])
                                
