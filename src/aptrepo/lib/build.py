@@ -63,6 +63,25 @@ def create_deb_struct(path, pkgname, **kwargs):
                 shutil.copy2(src, os.path.join(path, pkgname, tmpdir, dst))
                 
     return tmpdir
+
+def create_ipk_struct(path, pkgname, **kwargs):
+    logging.debug(__name__)
+    tmpdir = tempfile.mkdtemp(suffix='tmp', prefix=pkgname, 
+                              dir=os.path.join(path, pkgname))
+    copypath = os.path.join(path, pkgname, tmpdir)
+    os.makedirs(os.path.join(copypath, 'CONTROL'), exist_ok=True)
+    for deploykeys in ['Files', 'Override']:
+    # TODO: blacklist file types and folders, use os.walk
+        if os.path.isdir(src):
+            #print("Copy tree {}, {}".format(src, os.path.join(path, pkgname, tmpdir, dst)))
+            copytree(src, os.path.join(path, pkgname, tmpdir, dst))
+            
+        else:
+            dstpath = os.path.join(path, pkgname, tmpdir, *dst.split(os.sep)[:-1])
+            os.makedirs(dstpath, exist_ok=True)
+            shutil.copy2(src, os.path.join(path, pkgname, tmpdir, dst))
+            
+    return tmpdir
     
 def build_package(path, pkgname, **kwargs):
     pkg_profiles = kwargs['Build'].get('profiles', ['deb'])
@@ -77,7 +96,9 @@ def build_package(path, pkgname, **kwargs):
 
 def build_ipk_package(path, pkgname, **kwargs):
     logging.debug(__name__)
-    print("Build an ipk")
+    tmpdir = create_ipk_struct(path, pkgname, **kwargs)
+    remove_non_deployables(tmpdir, *REMOVE_FILES_FOLDERS)
+    write_ipk_control_file(tmpdir, pkgname, **Kwargs)
 
 def build_deb_package(path, pkgname, **kwargs):
     logging.debug(__name__)
@@ -94,7 +115,7 @@ def build_deb_package(path, pkgname, **kwargs):
     """
     tmpdir = create_deb_struct(path, pkgname, **kwargs)
     remove_non_deployables(tmpdir, *REMOVE_FILES_FOLDERS)
-    write_control_file(tmpdir, pkgname, **kwargs)
+    write_deb_control_file(tmpdir, pkgname, **kwargs)
     proc = Popen(['dpkg-deb', '--build', os.path.join(path, tmpdir), "."])
     proc.communicate()
     shutil.rmtree(tmpdir)
@@ -126,7 +147,30 @@ def pkg_installed_size(path, append_bytes=None, ignored_files=['DEBIAN']):
     
     return bytecount
 
-def write_control_file(path, pkgname, **kwargs):
+def write_ipk_control_file(path, pkgname, **kwargs):
+    logging.debug(__name__)
+    umask = os.umask(0o022)
+    controls = kwargs.get('Control', {})
+    for k, v in controls.items():
+        if os.path.exists(v) and os.path.isfile(v):
+            print("\tGenerating {}".format(k))
+            shutil.copy2(v, os.path.join(path, "CONTROL", k))
+            os.chmod(os.path.join(path, "CONTROL", k), 0o775)
+            
+    # Only write this control file if no other "control" file is specified
+    # as a control option
+    if controls.get('controls', None) is None:
+        with open(os.path.join(path, "CONTROL", "control"), 'w') as cf:
+            cf.write("Package: {}\n".format(pkgname.replace("_", ""))
+            pkgkw = kwargs.get('Package', {})
+            cf.write("Version: {}\n".format(str(pkgkw.get('set_version', "0.1")).replace("_", "")))
+            cf.write("Architecture: {}\n".format(', '.join(pkgkw.get('architecture'))))
+            if not pkgkw.get('maintainer') is None:
+                cf.write("Maintainer: {}\n".format(', '.join(pkgkw.get('maintainer'))))
+            
+            cf.write("Description: {}\n".format(pkgkw.get('desc', 'Description Not Set')))
+
+def write_deb_control_file(path, pkgname, **kwargs):
     logging.debug(__name__)
     umask = os.umask(0o022)
     # TODO Detect if package has a database file and use those
@@ -142,9 +186,9 @@ def write_control_file(path, pkgname, **kwargs):
     # as a control option
     if controls.get('controls', None) is None:
         with open(os.path.join(path, "DEBIAN", "control"), 'w') as cf:
-            cf.write("Package: {}\n".format(pkgname))
+            cf.write("Package: {}\n".format(pkgname.replace("_", "")))
             pkgkw = kwargs.get('Package', {})
-            cf.write("Version: {}\n".format(pkgkw.get('set_version', 0.1)))
+            cf.write("Version: {}\n".format(str(pkgkw.get('set_version', "0.1")).replace("_", "")))
             cf.write("Architecture: {}\n".format(', '.join(pkgkw.get('architecture'))))
             cf.write("Section: {}\n".format(pkgkw['section'] if pkgkw.get('section') in SECTIONS else "misc"))
             cf.write("Essential: {}\n".format("yes" if pkgkw.get('essential') else "no"))
