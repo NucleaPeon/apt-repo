@@ -111,7 +111,9 @@ def write_ipk_archives(path, pkgname, **kwargs):
                 tf.add(os.path.join(path, 'CONTROL', f), arcname=f)
                 
         with tarfile.open(name="data.tar.gz", mode='w:gz') as tf:
-            pass
+            for f in os.listdir(os.path.join(path, 'DATA')):
+                tf.add(os.path.join(path, 'DATA', f), arcname=f)
+                
             
         
     except ImportError:
