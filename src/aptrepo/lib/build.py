@@ -129,6 +129,11 @@ def write_ipk_archives(path, pkgname, **kwargs):
                 for files in ['control.tar.gz', 'data.tar.gz', 'debian-binary']:
                     tf.add(os.path.join(path, files), arcname=files)
             
+        print("apt-pkg: building package '{}' in '{}'.".format(pkgname, 
+                                                               os.path.join(
+                kwargs['Package'].get('directory', os.getcwd()), "{}_{}_{}.ipk".format(
+                    pkgname, kwargs['Package']['set_version'],
+                    a))))
         return 0
         
     except ImportError as iE:
