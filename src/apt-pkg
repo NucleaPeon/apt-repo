@@ -298,24 +298,19 @@ if __name__ == "__main__":
         
         if db.validate():
             db.read(opts.get('directory'), pkgname)
-            def rem_from_keys(key):
-                db = aptrepo.lib.db.read_keys(opts.get('directory'), pkgname, key)
-                for rm in args.action[2:]:
-                    correctpath = rm
-                    if os.path.isdir(correctpath):
-                        if not correctpath[-1] == os.sep:
-                            correctpath = correctpath + os.sep
-                
-                    for section in ['Files', 'Override']:
-                        if rm in config[section]:
-                            del config[section][rm]
-                            print("Removed {} from database".format(rm))
-                            
-                db.write()
-                
-            for k in ['files', 'override']:
-                rem_from_keys(k)
-                
+            for rm in args.action[2:]:
+                correctpath = rm
+                if os.path.isdir(correctpath):
+                    if not correctpath[-1] == os.sep:
+                        correctpath = correctpath + os.sep
+            
+                for section in ['Files', 'Override']:
+                    if rm in config[section]:
+                        del config[section][rm]
+                        print("Removed {} from database".format(rm))
+                        
+            db.write()
+            
     elif action == "control":
         if len(args.action) < 4:
             sys.stderr.write("Control scripts need a valid script name and path to the file\n")

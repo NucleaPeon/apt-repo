@@ -98,7 +98,7 @@ if __name__ == "__main__":
     if not action in ACTIONS:
         sys.stderr.write("Valid ACTION required -- Found [{}].\nSee 'apt-repo help' or 'apt-repo --help' for more information\n".format(action))
         sys.exit(1)
-        
+    
     opts = dict(desc="<Description Goes Here>",
                 directory=args.directory,
                 name="",
@@ -107,8 +107,7 @@ if __name__ == "__main__":
                 toplevel="debian",
                 platforms=['testing'],
                 restrictions=['main'],
-                https=False) if not aptrepo.lib.db.validate_db(args.directory, args.toplevel) else \
-        aptrepo.lib.db.entire_db(args.directory, args.toplevel)
+                https=False)
     
     path = os.path.join(opts.get('directory'), opts.get('toplevel'), 'dists')
     getlist = lambda: repo_paths(path, opts.get('platforms'), opts.get('restrictions'))
