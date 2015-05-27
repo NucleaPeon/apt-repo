@@ -64,10 +64,11 @@ def load_config_file(path, platform):
     cp.optionxform = str
     cp.read(path)
     db = {}
+    
     for section in cp.sections():
         for key in cp[section]:
             if key in CONF_TO_ARGS:
-                db[key] = CONF_TO_ARGS(cp[section][key])
+                db[key] = CONF_TO_ARGS[key](cp[section][key])
                 
             else:
                 db[key] = cp[section][key]
@@ -110,7 +111,7 @@ if __name__ == "__main__":
                         help="Sets the top level directory for filesystem repositories")
     parser.add_argument('--name', '-n', nargs='?', 
                         help="Sets the account name of the repository")
-    parser.add_argument('--email', '-e', nargs=1, default="no-reply@localhost.com", 
+    parser.add_argument('--email', '-e', nargs='?', 
                         help="Sets the account email address")
     parser.add_argument('--ip', '-i', nargs=1, help="Overrides the auto ip discovering feature")
     parser.add_argument('--gpg', '-g', nargs=1, #"./apt-repo.public.key",
@@ -220,9 +221,16 @@ if __name__ == "__main__":
     
     elif action == "update":
         # update config file then pass updates onto the repository
-        if os.path.exists(os.path.join(path, platform)):
-            opts.update(load_config_file(path, platform))
-            print(opts)
+        if os.path.exists(os.path.join(args.configdir, platform)):
+            db = load_config_file(args.configdir, platform)
+            for k, v in vars(args).items():
+                if k in ["action", "configdir"]:
+                    continue
+                
+                if not v is None:
+                    db[k] = v
+                    
+            write_config_file(path, platform, db)
             
         else:
             raise Exception("Configuration File not Found")
