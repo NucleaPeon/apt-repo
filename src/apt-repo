@@ -267,27 +267,18 @@ if __name__ == "__main__":
                     for a in opts.get('architecture', []):
                         print(a)
                         for pth in paths:
-                            print("Copying package {} to repository located at {}".format(p, pth))
                             shutil.copyfile(p, os.path.join(pth, arch_dir(a), p))
-                    
-    """
-                    for rpath in getlist():
-        
-                        # Seperate package from path
-                        newp = p.split(os.sep)[-1]
-                        for arch in opts.get('architecture'):
-                            arch = get_arch(arch)
-                            rpath = os.path.join(rpath, arch_dir(arch))
-                            shutil.copyfile(p, os.path.join(rpath, newp)) # No metadata copied, need to chown and chmod?
-                            if not rpath in modifiedrepos:
-                                modifiedrepos.append(rpath)
-                            print("Copying {} to {}".format(p, os.path.join(rpath, arch_dir(arch), newp)))
+                            newp = p.split(os.sep)[-1]
+                            if not pth in modifiedrepos:
+                                modifiedrepos.append(pth)
+                                
+                            print("Copied {} to {}".format(p, os.path.join(pth, arch_dir(a), newp)))
                             
         if modifiedrepos:
             for mr in modifiedrepos:
-                print(os.path.join(opts.get('directory'), opts.get('toplevel')))
                 Packages_gz(os.path.join(opts.get('directory'), opts.get('toplevel')), mr)
                 
+    """
     elif action == "info":
         '''
         INFO:
