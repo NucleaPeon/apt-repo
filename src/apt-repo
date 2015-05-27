@@ -3,6 +3,16 @@
 """
 Python-based debian repository management system
 
+:Progress:
+    o Create action implemented that seems to create the directory structure and
+      required files.
+      
+    o Directory parameter is saved into the configuration file so it can 
+      be used to automatically point to the repo provided the config file
+      is specified and proper. By default, /etc/apt-repo.d/ is used and
+      provided sudo or root privileges are used, no cli args have to be
+      specified to continue with any repo action.
+
 :Description:
     This software project has no affiliation with Debian's Official apt system.
     
@@ -17,8 +27,7 @@ Python-based debian repository management system
     
     :create:
         By default, this creates a repository in the current directory with 
-        defaults for a stable main repository. FIXME: Default to current dist
-        codename.
+        defaults for a stable main repository. 
 
 :Copyright:
     (C) 2015 PeonDevelopments
@@ -45,6 +54,37 @@ ARGS_TO_CONF = {"architecture": lambda x: ', '.join(x),
 CONF_TO_ARGS = {"architecture": lambda x: [y.strip() for y in x.split(',')],
                 "restrictions": lambda x: [y.strip() for y in x.split(',')],
                 "https": lambda x: True if x.lower() == "true" or x.lower() == "yes" else False}
+
+def load_config_file(path, platform):
+    path = os.path.join(path, platform)
+    if not os.path.exists(path):
+        raise Exception("Configuration File not found: {}".format(path))
+    
+    cp = configparser.ConfigParser()
+    cp.optionxform = str
+    cp.read(path)
+    db = {}
+    for section in cp.sections():
+        for key in cp[section]:
+            if key in CONF_TO_ARGS:
+                db[key] = CONF_TO_ARGS(cp[section][key])
+                
+            else:
+                db[key] = cp[section][key]
+            
+    return db
+
+def write_config_file(path, platform, db):
+    cp = configparser.ConfigParser()
+    cp[platform] = db
+    for arg in ARGS_TO_CONF.keys():
+        if arg in db:
+            cp[platform][arg] = ARGS_TO_CONF[arg](db[arg])
+        
+    print("Writing default config template to {}".format(configpath))
+    with open(configpath, 'w') as f:
+        cp.write(f)
+        
         
 ACTIONS = ["create", "delete", "update", "info", "add", "remove", "export", "gpg", "haspkg", "help", None]
 
@@ -77,13 +117,11 @@ if __name__ == "__main__":
                         help="Exports (and optionally creates) the gpg key to target path and filename") # TODO: Confirm use case of this option
     parser.add_argument('--architecture', '-a', nargs="*", 
                         help="Architectures to create repository with; defaults to current arch and source")
-    parser.add_argument('--toplevel', '-t', nargs="?", default="debian",
-                        help="name of top level directory; defaults to 'debian'")
+    parser.add_argument('--toplevel', '-t', nargs="?", help="name of top level directory; defaults to 'debian'")
     parser.add_argument('--restrictions', '-r', nargs="*", 
                          help="Package Freedom Restrictions (main, contrib, non-free), defaults to 'main'")
     parser.add_argument('--https', '-s', action="store_true", default=None, # FIXME: This should also take the server key as param to deploy
                         help="Sets the apt address to https instead of http")
-    parser.add_argument('--verbosity', '-v', nargs='?', default=0, help="Output program calls to stdout")
     args = parser.parse_args()
     # <-- End Command Line Argument parsing
     platform = args.action[0] if len(args.action) > 0 else None
@@ -95,51 +133,50 @@ if __name__ == "__main__":
         raise Exception("Action is required: {}".format(', '.join(
             [str(a) for a in filter(lambda x: not x is None, ACTIONS)])))
 
-    print(args.configdir)
-    if not os.path.exists(args.configdir):
-        try:
-            print("Creating configuration directory")
-            os.makedirs(args.configdir, exist_ok=True)
-            
-        except Exception as E:
-            print(E)
-            sys.exit(1)
-            
-    
     configpath = os.path.join(args.configdir, platform)
     opts = dict(desc="<Description Goes Here>",
                 directory=args.directory,
                 name="",
                 email="no-reply@localhost.com",
                 architecture=[arch()],
-                toplevel="debian",
+                toplevel="debian" if args.toplevel is None else args.toplevel,
                 restrictions=['main'],
                 https=False)
     
     # Update from defaults
     for k, v in vars(args).items():
+        if k in ["action"]:
+            continue
+        
         if not v is None:
             opts[k] = v
-    
-    # Create the configuration file
-    if not os.path.exists(configpath):
-        cp = configparser.ConfigParser()
-        cp[platform] = opts
-        print("Writing default config template to {}".format(configpath))
-        with open(configpath, 'w') as f:
-            cp.write(f)
     
     # Path to the first portion of the repository:
     path = os.path.join(opts.get('directory'), opts.get('toplevel'), 'dists')
     
     # Start checking and performing actions
     if action == "create":
+        # Create the configuration directory
+        if not os.path.exists(args.configdir):
+            try:
+                print("Creating configuration directory")
+                os.makedirs(args.configdir, exist_ok=True)
+                
+            except Exception as E:
+                print(E)
+                sys.exit(1)    
+                
+            
+        # Create the configuration file
+        if not os.path.exists(configpath):
+            write_config_file(args.configdir, platform, opts)
+        
+        # Start Create action process
         umask = os.umask(0o022)
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
             
         # Create pool directories
-        print(opts.get('restrictions'))
         for x in opts.get('restrictions'):
             os.makedirs(os.path.join(opts.get('directory'), opts.get('toplevel'), 'pool', x),
                         exist_ok=True)
@@ -180,11 +217,17 @@ if __name__ == "__main__":
                     f.write("Architecture: {}\n".format(z))
                     #f.write("Version: 0.1\n")
                         
-    """
+    
     elif action == "update":
-        # Change attributes in Release files or add/remove arches, platforms or restrictive components
-        print("TODO")
+        # update config file then pass updates onto the repository
+        if os.path.exists(os.path.join(path, platform)):
+            opts.update(load_config_file(path, platform))
+            print(opts)
+            
+        else:
+            raise Exception("Configuration File not Found")
 
+    """
     elif action == "delete":
         umask = os.umask(0o022)
         
