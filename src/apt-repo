@@ -34,21 +34,17 @@ import hashlib
 import shutil
 import json
 import shelve
-import aptrepo.lib.db
+import configparser
 from aptrepo.lib.scanpackages import Packages_gz
 from aptrepo.lib.arch import arch, get_arch, arch_dir
 from aptrepo.lib.security import md5sum_file, gen_gpg_key
-        
-def repo_path_validate(base, platforms, restrictions):
-    # Returns True if valid, False otherwise
-    return not False in repo_paths(base, platforms, restrictions)
 
-def repo_paths(base, platforms, restrictions):
-    all_paths = []
-    for p in platforms:
-        all_paths.extend([os.path.join(base, p, r) for r in restrictions])
-    
-    return all_paths
+ARGS_TO_CONF = {"architecture": lambda x: ', '.join(x),
+                "restrictions": lambda x: ', '.join(x),
+                "https": lambda x: "true" if x else "false"}
+CONF_TO_ARGS = {"architecture": lambda x: [y.strip() for y in x.split(',')],
+                "restrictions": lambda x: [y.strip() for y in x.split(',')],
+                "https": lambda x: True if x.lower() == "true" or x.lower() == "yes" else False}
         
 ACTIONS = ["create", "delete", "update", "info", "add", "remove", "export", "gpg", "haspkg", "help", None]
 
@@ -62,11 +58,14 @@ if __name__ == "__main__":
         return "deb http{}://{}/ {} {}".format("s" if https else "", ip,
                                                  ' '.join(platforms), ' '.join(restrictions))
     # --> Start Command Line Argument parsing
-    parser = argparse.ArgumentParser(description="Debian Repository Management Tool")
+    parser = argparse.ArgumentParser(description="Debian Repository Management Tool",
+                                     usage="%(prog)s [repo-platform] [action] (cli options)")
     parser.add_argument('action', nargs='*',
                        help="Run 'apt-repo help' to list all the actions")
     parser.add_argument('--desc', nargs='?', 
                         help="Set a repository description")
+    parser.add_argument('--configdir', '-c', nargs='?', default=os.path.join(os.sep, 'etc', 'apt-repo.d'),
+                        help="Specify directory where repo configuration files are kept")
     parser.add_argument('--directory', '-d', nargs='?', default=os.path.abspath(os.getcwd()),
                         help="Sets the top level directory for filesystem repositories")
     parser.add_argument('--name', '-n', nargs='?', 
@@ -80,9 +79,6 @@ if __name__ == "__main__":
                         help="Architectures to create repository with; defaults to current arch and source")
     parser.add_argument('--toplevel', '-t', nargs="?", default="debian",
                         help="name of top level directory; defaults to 'debian'")
-    parser.add_argument('--platforms', '-f', nargs="*", 
-                        help="Platforms to support; defaults to 'stable'. Codenames are preferred"
-                        "Other official platforms are 'experimental' and '*/updates (stable/updates), etc.")
     parser.add_argument('--restrictions', '-r', nargs="*", 
                          help="Package Freedom Restrictions (main, contrib, non-free), defaults to 'main'")
     parser.add_argument('--https', '-s', action="store_true", default=None, # FIXME: This should also take the server key as param to deploy
@@ -90,43 +86,66 @@ if __name__ == "__main__":
     parser.add_argument('--verbosity', '-v', nargs='?', default=0, help="Output program calls to stdout")
     args = parser.parse_args()
     # <-- End Command Line Argument parsing
-
-    # --> Start managing cli arguments to produce an Action
-    nix_platform = platform.linux_distribution() # (name, id,)
-    # Catches all invalid actions and exists the program so we can avoid validation later.
-    action = args.action[0].lower() if len(args.action) > 0 else None
-    if not action in ACTIONS:
-        sys.stderr.write("Valid ACTION required -- Found [{}].\nSee 'apt-repo help' or 'apt-repo --help' for more information\n".format(action))
-        sys.exit(1)
+    platform = args.action[0] if len(args.action) > 0 else None
+    action = args.action[1] if len(args.action) > 1 else None
+    if len(args.action) < 2:
+        raise Exception("Not enough Arguments: apt-repo [platform] [action]")
     
+    if action is None:
+        raise Exception("Action is required: {}".format(', '.join(
+            [str(a) for a in filter(lambda x: not x is None, ACTIONS)])))
+
+    print(args.configdir)
+    if not os.path.exists(args.configdir):
+        try:
+            print("Creating configuration directory")
+            os.makedirs(args.configdir, exist_ok=True)
+            
+        except Exception as E:
+            print(E)
+            sys.exit(1)
+            
+    
+    configpath = os.path.join(args.configdir, platform)
     opts = dict(desc="<Description Goes Here>",
                 directory=args.directory,
                 name="",
                 email="no-reply@localhost.com",
                 architecture=[arch()],
                 toplevel="debian",
-                platforms=['testing'],
                 restrictions=['main'],
                 https=False)
     
-    path = os.path.join(opts.get('directory'), opts.get('toplevel'), 'dists')
-    getlist = lambda: repo_paths(path, opts.get('platforms'), opts.get('restrictions'))
-    
+    # Update from defaults
     for k, v in vars(args).items():
         if not v is None:
             opts[k] = v
-            
+    
+    # Create the configuration file
+    if not os.path.exists(configpath):
+        cp = configparser.ConfigParser()
+        cp[platform] = opts
+        print("Writing default config template to {}".format(configpath))
+        with open(configpath, 'w') as f:
+            cp.write(f)
+    
+    # Path to the first portion of the repository:
+    path = os.path.join(opts.get('directory'), opts.get('toplevel'), 'dists')
+    
+    # Start checking and performing actions
     if action == "create":
         umask = os.umask(0o022)
+        if not os.path.exists(path):
+            os.makedirs(path, exist_ok=True)
+            
+        # Create pool directories
+        print(opts.get('restrictions'))
         for x in opts.get('restrictions'):
             os.makedirs(os.path.join(opts.get('directory'), opts.get('toplevel'), 'pool', x),
                         exist_ok=True)
-        # Ugly 3x for loop, let's be straight forward and append all unique paths
-        os.makedirs(path, exist_ok=True)
-        
+            
         # Before the Release file is created, we need the following files to be created and filled out. TODO
         # RESEARCH THIS NOW
-        
         relfiles = ["Packages", "Packages.gz", "Sources", "Sources.gz"]
         with open(os.path.join(path, 'Release'), 'w') as f:
             f.write("Origin: {}\n".format(opts.get('name')))
@@ -144,28 +163,24 @@ if __name__ == "__main__":
                     
         # IMPORTANT! GNU GPG requires some work going on in order to generate entropy
         # This is a stop-gap for an important step.
+        #        with open(os.path.join(path, 'Release.gpg'), 'w') as f:
+        #            f.write("")
 
-#        with open(os.path.join(path, 'Release.gpg'), 'w') as f:
-#            f.write("")
+        for y in opts.get('restrictions'):
+            for z in opts.get('architecture'):
+                z = arch_dir(get_arch(z))
+                os.makedirs(os.path.join(path, platform, y, z),
+                            exist_ok=True)
 
-        #for z in args.architecture:
-            #with open(os.path.join(path, 'Contents-{}'.format(get_arch(z))), 'w') as f:
-                #pass
-
-        for x in opts.get('platforms'):
-            for y in opts.get('restrictions'):
-                for z in opts.get('architecture'):
-                    z = get_arch(z)
-                    os.makedirs(os.path.join(path, x, y, arch_dir(z)),
-                                exist_ok=True)
-                    with open(os.path.join(path, x, y, arch_dir(z), "Release"), 'w') as f:
-                        f.write("Archive: {}\n".format(x))
-                        f.write("Origin: {}\n".format(opts.get('name')))
-                        f.write("Label: {}\n".format(opts.get('name')))
-                        f.write("Component: {}\n".format(y))
-                        f.write("Architecture: {}\n".format(get_arch(z)))
-                        #f.write("Version: 0.1\n")
+                with open(os.path.join(path, platform, y, z, "Release"), 'w') as f:
+                    f.write("Archive: {}\n".format(platform))
+                    f.write("Origin: {}\n".format(opts.get('name')))
+                    f.write("Label: {}\n".format(opts.get('name')))
+                    f.write("Component: {}\n".format(y))
+                    f.write("Architecture: {}\n".format(z))
+                    #f.write("Version: 0.1\n")
                         
+    """
     elif action == "update":
         # Change attributes in Release files or add/remove arches, platforms or restrictive components
         print("TODO")
@@ -367,7 +382,8 @@ if __name__ == "__main__":
         sys.stderr.write("Error: An ACTION was required, but not found.\n")
         sys.exit(3)
             
-
-    # <-- Action has been performed, if successful we exit with 0 status
-    sys.exit(0)
     
+    # <-- Action has been performed, if successful we exit with 0 status
+    """
+    
+    sys.exit(0)
