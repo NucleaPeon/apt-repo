@@ -235,7 +235,6 @@ if __name__ == "__main__":
         else:
             raise Exception("Configuration File not Found")
 
-    """
     elif action == "delete":
         umask = os.umask(0o022)
         
@@ -249,6 +248,7 @@ if __name__ == "__main__":
                 toremove))
             sys.exit(2)
         
+    """
     elif action == "info":
         '''
         INFO:
