@@ -55,6 +55,8 @@ CONF_TO_ARGS = {"architecture": lambda x: [y.strip() for y in x.split(',')],
                 "restrictions": lambda x: [y.strip() for y in x.split(',')],
                 "https": lambda x: True if x.lower() == "true" or x.lower() == "yes" else False}
 
+SUPPORTED_EXTENSIONS = [".deb", ".ipk"]
+
 def load_config_file(path, platform):
     path = os.path.join(path, platform)
     if not os.path.exists(path):
@@ -250,14 +252,27 @@ if __name__ == "__main__":
     elif action == "add":
         # Adds a component to an existing repo.
         packages = args.action[2:]
-        print(packages)
         modifiedrepos = []
-        
-    """
+        if os.path.exists(os.path.join(args.configdir, platform)):
+            opts = load_config_file(args.configdir, platform)
+            
         if packages:
             for p in packages:
-                if len(p) > 4 and p[-4:] == ".deb":
+                if len(p) > 4 and p[-4:] in SUPPORTED_EXTENSIONS:
+                    print(p)
+                    # Get paths for copying package files
+                    paths = [os.path.join(path, platform, x) for x in opts.get('restrictions', [])]
+                    print(paths)
+                    print(opts)
+                    for a in opts.get('architecture', []):
+                        print(a)
+                        for pth in paths:
+                            print("Copying package {} to repository located at {}".format(p, pth))
+                            shutil.copyfile(p, os.path.join(pth, arch_dir(a), p))
+                    
+    """
                     for rpath in getlist():
+        
                         # Seperate package from path
                         newp = p.split(os.sep)[-1]
                         for arch in opts.get('architecture'):
