@@ -244,11 +244,35 @@ if __name__ == "__main__":
             shutil.rmtree(toremove)
             
         else:
-            sys.stderr.write("Error: Failed to remove non-existant directory: {}\n".format(
+            raise Exception("Error: Failed to remove non-existant directory: {}\n".format(
                 toremove))
-            sys.exit(2)
+        
+    elif action == "add":
+        # Adds a component to an existing repo.
+        packages = args.action[2:]
+        print(packages)
+        modifiedrepos = []
         
     """
+        if packages:
+            for p in packages:
+                if len(p) > 4 and p[-4:] == ".deb":
+                    for rpath in getlist():
+                        # Seperate package from path
+                        newp = p.split(os.sep)[-1]
+                        for arch in opts.get('architecture'):
+                            arch = get_arch(arch)
+                            rpath = os.path.join(rpath, arch_dir(arch))
+                            shutil.copyfile(p, os.path.join(rpath, newp)) # No metadata copied, need to chown and chmod?
+                            if not rpath in modifiedrepos:
+                                modifiedrepos.append(rpath)
+                            print("Copying {} to {}".format(p, os.path.join(rpath, arch_dir(arch), newp)))
+                            
+        if modifiedrepos:
+            for mr in modifiedrepos:
+                print(os.path.join(opts.get('directory'), opts.get('toplevel')))
+                Packages_gz(os.path.join(opts.get('directory'), opts.get('toplevel')), mr)
+                
     elif action == "info":
         '''
         INFO:
@@ -285,28 +309,6 @@ if __name__ == "__main__":
                              indent=4,
                              separators=(',', ': ',)))
     
-    elif action == "add":
-        # Adds a component to an existing repo.
-        packages = args.action[1:]
-        modifiedrepos = []
-        if packages:
-            for p in packages:
-                if len(p) > 4 and p[-4:] == ".deb":
-                    for rpath in getlist():
-                        # Seperate package from path
-                        newp = p.split(os.sep)[-1]
-                        for arch in opts.get('architecture'):
-                            arch = get_arch(arch)
-                            rpath = os.path.join(rpath, arch_dir(arch))
-                            shutil.copyfile(p, os.path.join(rpath, newp)) # No metadata copied, need to chown and chmod?
-                            if not rpath in modifiedrepos:
-                                modifiedrepos.append(rpath)
-                            print("Copying {} to {}".format(p, os.path.join(rpath, arch_dir(arch), newp)))
-                            
-        if modifiedrepos:
-            for mr in modifiedrepos:
-                print(os.path.join(opts.get('directory'), opts.get('toplevel')))
-                Packages_gz(os.path.join(opts.get('directory'), opts.get('toplevel')), mr)
     
     elif action == "remove":
         modifiedrepos = []
