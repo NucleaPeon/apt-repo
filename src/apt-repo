@@ -62,9 +62,9 @@ if __name__ == "__main__":
         Write Release files with md5sum on Packages{.gz} and Sources{.gz} if applicable
         
     '''
-    def format_deb_line(ip,  platforms, restrictions, https=False):
+    def format_deb_line(ip,  platform, restrictions, https=False):
         return "deb http{}://{}/ {} {}".format("s" if https else "", ip,
-                                                 ' '.join(platforms), ' '.join(restrictions))
+                                                 platform, ' '.join(restrictions))
     # --> Start Command Line Argument parsing
     parser = argparse.ArgumentParser(description="Debian Repository Management Tool",
                                      usage="%(prog)s [repo-platform] [action] (cli options)")
@@ -270,7 +270,7 @@ if __name__ == "__main__":
                 pkglist = packagelist(path, platform)
                 for rempkg in packages:
                     for r in opts['restrictions']:
-                        possiblepkgs = list(filter(lambda x: rempkg in x, pkglist))
+                        possiblepkgs = list(set(filter(lambda x: rempkg in x, pkglist)))
                         if len(possiblepkgs) == 1:
                             # TODO: Remove package
                             p = os.path.join(path, platform, r, a)
@@ -282,57 +282,19 @@ if __name__ == "__main__":
                             print("More than one package matched for removal: [{}]".format(', '.join(possiblepkgs)))
     
         for m in modified:
-            print(path)
             Packages_gz(os.path.abspath(os.path.join(path, '..')), m)
             
-    """
-                    files = [ f for f in os.listdir(os.path.join(rpath, arch_dir(a))) if f[-4:] == ".deb" ]
-                    for f in files:
-                        # we compare the debian package name, omit the version and arch string which should be standard.
-                        # We also check for verbatim comparisons
-                        splt = f.split('-')
-                        for foundpkg in filter(lambda x: '-'.join(splt[0:len(splt)-1]) == x, packages):
-                            os.remove(os.path.join(rpath, arch_dir(a), f))
-                            modified = True
-                            print("Found {}, Removing {} from {}".format(foundpkg, f, os.path.join(rpath, arch_dir(a))))
-                            
-                        for foundpkg in filter(lambda x: x == f, packages):
-                            os.remove(os.path.join(rpath, arch_dir(a), f))
-                            modified = True
-                            print("Removing {}".format(os.path.join(rpath, arch_dir(a), foundpkg)))
-                            
-                    if modified:
-                        modifiedrepos.append(rpath)
-                            
-        if modifiedrepos:
-            for mr in modifiedrepos:
-                Packages_gz(os.path.join(opts.get('directory'), opts.get('toplevel')), mr)
-        
     elif action == "haspkg":
-        # Initialize search results
-        # NOTE: This complex code can be eliminated with the introduction of a database
-        pkgs = {}
-        pkglist = []
-        for x in getlist():
-            for a in opts.get('architecture'):
-                pkgdir = os.path.join(x, arch_dir(a))
-                pkgs[pkgdir] = []
-                pkglist = [ f for f in os.listdir(pkgdir) if os.path.isfile(os.path.join(pkgdir, f)) and ".deb" in f ]
-                for pkg in args.action[1:]:
-                    for p in pkglist:
-                        pkg = pkg.replace('.deb', '')
-                        # Add package if the string is found in the name and if it isn't already added
-                        if pkg in p:
-                            if not p in pkgs[pkgdir]:
-                                pkgs[pkgdir].append(p)
-                
-        print(json.dumps(pkgs, default=str, sort_keys=True,
-                             indent=4, separators=(',', ': ',)))
+        pkglist = packagelist(path, platform)
+        pkgret = []
+        for p in args.action[2:]:
+            pkgret.extend(list(filter(lambda x: p in x, pkglist)))
+            
+        print('\n'.join(pkgret))
     
     elif action == "export":
-        for p in opts.get('platforms'):
-            print(format_deb_line(socket.gethostbyname(socket.gethostname()),
-                                  [p], opts.get('restrictions'), https=opts.get('https')))
+        print(format_deb_line(socket.gethostbyname(socket.gethostname()),
+                                platform, opts.get('restrictions'), https=opts.get('https')))
             
         # TODO: Source repository names
         
@@ -404,8 +366,5 @@ if __name__ == "__main__":
         sys.stderr.write("Error: An ACTION was required, but not found.\n")
         sys.exit(3)
             
-    
-    # <-- Action has been performed, if successful we exit with 0 status
-    """
     
     sys.exit(0)

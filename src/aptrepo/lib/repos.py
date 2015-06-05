@@ -61,7 +61,6 @@ def packagelist(path, platform):
             for se in SUPPORTED_EXTENSIONS:
                 if f[-len(se):len(f)] == se:
                     pl.append(f)
-                    print(f)
                     
     return pl
                     
