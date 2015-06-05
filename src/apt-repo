@@ -44,50 +44,15 @@ import shutil
 import json
 import shelve
 import configparser
+from aptrepo.lib.repos import write_config_file, load_config_file, SUPPORTED_EXTENSIONS, CONF_TO_ARGS, ARGS_TO_CONF, repo_paths, count_supported_packages, package_space_usage, packagelist
 from aptrepo.lib.scanpackages import Packages_gz
 from aptrepo.lib.arch import arch, get_arch, arch_dir
 from aptrepo.lib.security import md5sum_file, gen_gpg_key
 
-ARGS_TO_CONF = {"architecture": lambda x: ', '.join(x),
-                "restrictions": lambda x: ', '.join(x),
-                "https": lambda x: "true" if x else "false"}
-CONF_TO_ARGS = {"architecture": lambda x: [y.strip() for y in x.split(',')],
-                "restrictions": lambda x: [y.strip() for y in x.split(',')],
-                "https": lambda x: True if x.lower() == "true" or x.lower() == "yes" else False}
-
-SUPPORTED_EXTENSIONS = [".deb", ".ipk"]
-
-def load_config_file(path, platform):
-    path = os.path.join(path, platform)
-    if not os.path.exists(path):
-        raise Exception("Configuration File not found: {}".format(path))
-    
-    cp = configparser.ConfigParser()
-    cp.optionxform = str
-    cp.read(path)
-    db = {}
-    
-    for section in cp.sections():
-        for key in cp[section]:
-            if key in CONF_TO_ARGS:
-                db[key] = CONF_TO_ARGS[key](cp[section][key])
-                
-            else:
-                db[key] = cp[section][key]
-            
-    return db
-
-def write_config_file(path, platform, db):
-    cp = configparser.ConfigParser()
-    cp[platform] = db
-    for arg in ARGS_TO_CONF.keys():
-        if arg in db:
-            cp[platform][arg] = ARGS_TO_CONF[arg](db[arg])
-        
-    print("Writing default config template to {}".format(configpath))
-    with open(configpath, 'w') as f:
-        cp.write(f)
-        
+def load_paths_for_platform(path_to_platform):
+    for f in os.listdir(path_to_platform):
+        if os.path.isdir(f):
+            yield (f, os.path.join(path_to_platform, f),)
         
 ACTIONS = ["create", "delete", "update", "info", "add", "remove", "export", "gpg", "haspkg", "help", None]
 
@@ -137,7 +102,7 @@ if __name__ == "__main__":
             [str(a) for a in filter(lambda x: not x is None, ACTIONS)])))
 
     configpath = os.path.join(args.configdir, platform)
-    opts = dict(desc="<Description Goes Here>",
+    opts = dict(desc="apt-repo generated repository",
                 directory=args.directory,
                 name="",
                 email="no-reply@localhost.com",
@@ -239,7 +204,6 @@ if __name__ == "__main__":
 
     elif action == "delete":
         umask = os.umask(0o022)
-        
         toremove = os.path.join(opts.get('directory'), opts.get('toplevel'))
         print("\tRemoving {}".format(toremove))
         if os.path.exists(toremove):
@@ -278,7 +242,6 @@ if __name__ == "__main__":
             for mr in modifiedrepos:
                 Packages_gz(os.path.join(opts.get('directory'), opts.get('toplevel')), mr)
                 
-    """
     elif action == "info":
         '''
         INFO:
@@ -287,42 +250,42 @@ if __name__ == "__main__":
             - List total stats of each repo section
             - List the ip address of the repo, list the deb line for the sources file
         '''
-        
-        if os.path.exists(path):
-            # TODO: valid={check if repo structure works}
-            pkgs = {}
-            def repo_dict(repository, pkgs):
-                return {"packagecount": len(pkgs[repository]),
-                        "totalsize": "FIXME"}
-                
-            for x in getlist():
-                for a in opts.get('architecture'):
-                    pkgdir = os.path.join(x, arch_dir(a))
-                    pkgs[pkgdir] = [ f for f in os.listdir(pkgdir) if os.path.isfile(os.path.join(pkgdir, f)) and ".deb" in f ]
-                   
-            print(json.dumps(dict(ipaddr=socket.gethostbyname(socket.gethostname()),
-                                  filepath=os.path.abspath(path),
-                                  apt=format_deb_line(socket.gethostbyname(socket.gethostname()),
-                                                      opts.get('platforms'), opts.get('restrictions'), https=opts.get('https')),
-                                  architectures=opts.get('architecture'),
-                                  platforms=opts.get('platforms'),
-                                  repositories={r: repo_dict(r, pkgs) for r in pkgs},
-                                  contribs=opts.get('restrictions'),
-                                  valid=repo_path_validate(path, opts.get('platforms'), opts.get('restrictions')),
-                                  webserverroot=os.path.abspath(os.path.join(opts.get('directory'), opts.get('toplevel')))), 
-                             default=str,
-                             sort_keys=True,
-                             indent=4,
+        if os.path.exists(configpath):
+            opts = load_config_file(args.configdir, platform)
+            output = opts
+            output.update(dict(
+                repository=dict(
+                    {platform: repo_paths(path, platform),
+                     "packages": count_supported_packages(path, platform),
+                     "totalsize": package_space_usage(path, platform)})))
+                    
+            print(json.dumps(opts, default=str, sort_keys=True, indent=4,
                              separators=(',', ': ',)))
-    
-    
     elif action == "remove":
-        modifiedrepos = []
-        packages = args.action[1:]
+        packages = args.action[2:]
+        modified = []
         if packages:
-            for rpath in getlist():
-                for a in opts.get('architecture'):
-                    modified = False
+            for a in opts.get('architecture'):
+                a = arch_dir(a)
+                pkglist = packagelist(path, platform)
+                for rempkg in packages:
+                    for r in opts['restrictions']:
+                        possiblepkgs = list(filter(lambda x: rempkg in x, pkglist))
+                        if len(possiblepkgs) == 1:
+                            # TODO: Remove package
+                            p = os.path.join(path, platform, r, a)
+                            os.remove(os.path.join(p, possiblepkgs[0]))
+                            modified.append(p)
+                            
+                        elif possiblepkgs:
+                            # > 1 number of packages in the list
+                            print("More than one package matched for removal: [{}]".format(', '.join(possiblepkgs)))
+    
+        for m in modified:
+            print(path)
+            Packages_gz(os.path.abspath(os.path.join(path, '..')), m)
+            
+    """
                     files = [ f for f in os.listdir(os.path.join(rpath, arch_dir(a))) if f[-4:] == ".deb" ]
                     for f in files:
                         # we compare the debian package name, omit the version and arch string which should be standard.

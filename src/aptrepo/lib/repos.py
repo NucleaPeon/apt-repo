@@ -53,6 +53,20 @@ def count_supported_packages(path, platform):
             
     return count
 
+def packagelist(path, platform):
+    rootpath = os.path.join(path, platform)
+    pl = []
+    for root, dirs, files in os.walk(rootpath):
+        for f in files:
+            for se in SUPPORTED_EXTENSIONS:
+                if f[-len(se):len(f)] == se:
+                    pl.append(f)
+                    print(f)
+                    
+    return pl
+                    
+                    
+
 def repo_paths(path, platform):
     rootpath = os.path.join(path, platform)
     paths = dict(root=rootpath)

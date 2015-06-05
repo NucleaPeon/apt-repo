@@ -18,6 +18,8 @@ import os
 def Packages_gz(webroot, path):
     os.chdir(webroot)
     relpath = os.path.relpath(path)
+    print("webroot {}".format(webroot))
+    print("path {}".format(relpath))
     # dpkg-scanpackages [repo w/o directory + toplevel] [/dev/null] > [repo w/o directory + toplevel]/Packages.gz
     cmd = "dpkg-scanpackages {} /dev/null | gzip -9c > {}/Packages.gz".format(
         relpath, relpath)
@@ -25,3 +27,4 @@ def Packages_gz(webroot, path):
     proc = Popen(cmd, shell=True)
     proc.communicate()
     return proc.returncode
+
