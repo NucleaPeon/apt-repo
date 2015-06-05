@@ -18,6 +18,8 @@ def write_config_file(path, platform, db):
         if arg in db:
             cp[platform][arg] = ARGS_TO_CONF[arg](db[arg])
         
+        
+    configpath = os.path.join(path, platform)
     print("Writing default config template to {}".format(configpath))
     with open(configpath, 'w') as f:
         cp.write(f)
