@@ -42,6 +42,7 @@ import socket
 import hashlib
 import shutil
 import json
+import glob
 import shelve
 import configparser
 from aptrepo.lib.repos import write_config_file, load_config_file, SUPPORTED_EXTENSIONS, CONF_TO_ARGS, ARGS_TO_CONF, repo_paths, count_supported_packages, package_space_usage, packagelist
@@ -53,6 +54,92 @@ def load_paths_for_platform(path_to_platform):
     for f in os.listdir(path_to_platform):
         if os.path.isdir(f):
             yield (f, os.path.join(path_to_platform, f),)
+            
+            
+def create_repo_structure(configpath, platform, args, opts):
+    # Create the configuration directory
+    if not os.path.exists(args.configdir):
+        try:
+            print("Creating configuration directory: {}".format(args.configdir))
+            os.makedirs(args.configdir, exist_ok=True)
+            
+        except Exception as E:
+            print(E)
+            sys.exit(1)
+            
+        
+    # Create the configuration file
+    if not os.path.exists(configpath):
+        write_config_file(args.configdir, platform, opts)
+    
+    # Start Create action process
+    umask = os.umask(0o022)
+    basepath = opts['directory']
+    if not os.path.exists(basepath):
+        os.makedirs(basepath, exist_ok=True)
+        
+    # Create pool directories
+    for x in opts['restrictions']:
+        for y in opts['architecture']:
+            os.makedirs(os.path.join(basepath, opts['toplevel'], 'pool', x),
+                    exist_ok=True)
+            os.makedirs(os.path.join(basepath, opts['toplevel'], 'dists', platform,  x, arch_dir(y)),
+                        exist_ok=True)
+            
+    basepath = os.path.join(basepath, opts['toplevel'], 'dists', platform)
+    os.makedirs(basepath, exist_ok=True)
+        
+    # Before the Release file is created, we need the following files to be created and filled out. TODO
+    # RESEARCH THIS NOW
+    
+    # WRITE RELEASE FILE
+
+    relfiles = ["Packages", "Packages.gz", "Sources", "Sources.gz"]
+    with open(os.path.join(basepath, 'Release'), 'w') as f:
+        f.write("Origin: {}\n".format(opts.get('name')))
+        f.write("Label: {}\n".format(opts.get('name')))
+        f.write("Suite: {}\n".format('wheezy'))
+        f.write("Codename: {}\n".format('wheezy')) # FIXME
+        f.write("Date: {}\n".format(datetime.datetime.strftime(datetime.datetime.now(), "%a, %d %b %Y %H:%M:%S %Z")))
+        f.write("Architectures: {}\n".format(' '.join([get_arch(a) for a in opts.get('architecture')])))
+        f.write("Components: {}\n".format(' '.join(opts.get('restrictions'))))
+        f.write("Description: {}\n".format(opts.get('desc')))
+        #f.write("MD5Sum:\n")
+        #for x in opts.get('restrictions', ['main']):
+        #    for y in relfiles:
+        #        if os.path.exists(os.path.join(basepath, x)):
+        #            f.write(" {}\n".format(md5sum_file(os.path.join(basepath, platform, x), y)))
+                
+    # IMPORTANT! GNU GPG requires some work going on in order to generate entropy
+    # This is a stop-gap for an important step.
+    #        with open(os.path.join(path, 'Release.gpg'), 'w') as f:
+    #            f.write("")
+
+    for y in opts.get('restrictions'):
+        for z in opts['architecture']:
+            z = get_arch(z)
+            os.makedirs(os.path.join(basepath, y, arch_dir(z)),
+                        exist_ok=True)
+
+            with open(os.path.join(basepath, y, arch_dir(z), "Release"), 'w') as f:
+                f.write("Archive: {}\n".format(platform))
+                f.write("Origin: {}\n".format(opts.get('name')))
+                f.write("Label: {}\n".format(opts.get('name')))
+                f.write("Component: {}\n".format(y))
+                f.write("Architecture: {}\n".format(z))
+                #f.write("Version: 0.1\n")
+        
+def update_options(args, opts):
+    # Update from defaults
+    create = False
+    for k, v in vars(args).items():
+        if k in ["action"]:
+            continue
+        
+        if not v is None:
+            opts[k] = v
+            
+    return opts
         
 ACTIONS = ["create", "delete", "update", "info", "add", "remove", "export", "gpg", "haspkg", "help", None]
 
@@ -74,7 +161,7 @@ if __name__ == "__main__":
                         help="Set a repository description")
     parser.add_argument('--configdir', '-c', nargs='?', default=os.path.join(os.sep, 'etc', 'apt-repo.d'),
                         help="Specify directory where repo configuration files are kept")
-    parser.add_argument('--directory', '-d', nargs='?', default=os.path.abspath(os.getcwd()),
+    parser.add_argument('--directory', '-d', nargs='?', default=None,
                         help="Sets the top level directory for filesystem repositories")
     parser.add_argument('--name', '-n', nargs='?', 
                         help="Sets the account name of the repository")
@@ -102,8 +189,9 @@ if __name__ == "__main__":
             [str(a) for a in filter(lambda x: not x is None, ACTIONS)])))
 
     configpath = os.path.join(args.configdir, platform)
+    # Set default options
     opts = dict(desc="apt-repo generated repository",
-                directory=args.directory,
+                directory=args.directory if not args.directory is None else os.path.abspath(os.getcwd()),
                 name="",
                 email="no-reply@localhost.com",
                 architecture=[arch()],
@@ -111,101 +199,32 @@ if __name__ == "__main__":
                 restrictions=['main'],
                 https=False)
     
-    # Update from defaults
-    for k, v in vars(args).items():
-        if k in ["action"]:
-            continue
-        
-        if not v is None:
-            opts[k] = v
-    
-    # Path to the first portion of the repository:
-    path = os.path.join(opts.get('directory'), opts.get('toplevel'), 'dists')
-    
     # Start checking and performing actions
     if action == "create":
-        # Create the configuration directory
-        if not os.path.exists(args.configdir):
-            try:
-                print("Creating configuration directory")
-                os.makedirs(args.configdir, exist_ok=True)
-                
-            except Exception as E:
-                print(E)
-                sys.exit(1)
-                
-            
-        # Create the configuration file
-        if not os.path.exists(configpath):
-            write_config_file(args.configdir, platform, opts)
-        
-        # Start Create action process
-        umask = os.umask(0o022)
-        if not os.path.exists(path):
-            os.makedirs(path, exist_ok=True)
-            
-        # Create pool directories
-        for x in opts.get('restrictions'):
-            os.makedirs(os.path.join(opts.get('directory'), opts.get('toplevel'), 'pool', x),
-                        exist_ok=True)
-            
-        # Before the Release file is created, we need the following files to be created and filled out. TODO
-        # RESEARCH THIS NOW
-        relfiles = ["Packages", "Packages.gz", "Sources", "Sources.gz"]
-        with open(os.path.join(path, 'Release'), 'w') as f:
-            f.write("Origin: {}\n".format(opts.get('name')))
-            f.write("Label: {}\n".format(opts.get('name')))
-            f.write("Suite: {}\n".format('wheezy'))
-            f.write("Codename: {}\n".format('wheezy')) # FIXME
-            f.write("Date: {}\n".format(datetime.datetime.strftime(datetime.datetime.now(), "%a, %d %b %Y %H:%M:%S %Z")))
-            f.write("Architectures: {}\n".format(' '.join([get_arch(a) for a in opts.get('architecture')])))
-            f.write("Components: {}\n".format(' '.join(opts.get('restrictions'))))
-            f.write("Description: {}\n".format(opts.get('desc')))
-            f.write("MD5Sum:\n")
-            for x in relfiles:
-                if os.path.exists(os.path.join(path, x)):
-                    f.write(" {}\n".format(md5sum_file(path, x)))
-                    
-        # IMPORTANT! GNU GPG requires some work going on in order to generate entropy
-        # This is a stop-gap for an important step.
-        #        with open(os.path.join(path, 'Release.gpg'), 'w') as f:
-        #            f.write("")
-
-        for y in opts.get('restrictions'):
-            for z in opts.get('architecture'):
-                z = arch_dir(get_arch(z))
-                os.makedirs(os.path.join(path, platform, y, z),
-                            exist_ok=True)
-
-                with open(os.path.join(path, platform, y, z, "Release"), 'w') as f:
-                    f.write("Archive: {}\n".format(platform))
-                    f.write("Origin: {}\n".format(opts.get('name')))
-                    f.write("Label: {}\n".format(opts.get('name')))
-                    f.write("Component: {}\n".format(y))
-                    f.write("Architecture: {}\n".format(z))
-                    #f.write("Version: 0.1\n")
-                        
+        opts = update_options(args, opts)
+        path = os.path.join(opts.get('directory'), opts.get('toplevel'), 'dists')
+        create_repo_structure(path, platform, args, opts)
     
     elif action == "update":
         # update config file then pass updates onto the repository
         if os.path.exists(os.path.join(args.configdir, platform)):
             db = load_config_file(args.configdir, platform)
-            for k, v in vars(args).items():
-                if k in ["action", "configdir"]:
-                    continue
+            db = update_options(args, db)
+            if not args.directory is None:
+                create_repo_structure(os.path.join(opts.get('directory'), opts.get('toplevel'), 'dists'), platform, args, opts)
                 
-                if not v is None:
-                    db[k] = v
-                    
-            write_config_file(path, platform, db)
+            write_config_file(args.configdir, platform, db)
+            
             
         else:
             raise Exception("Configuration File not Found")
 
     elif action == "delete":
         umask = os.umask(0o022)
+        opts = load_config_file(args.configdir, platform)
+        opts = update_options(args, opts)
         toremove = os.path.join(opts.get('directory'), opts.get('toplevel'))
-        print("\tRemoving {}".format(toremove))
+        print("Removing {}".format(toremove))
         if os.path.exists(toremove):
             shutil.rmtree(toremove)
             
@@ -214,33 +233,34 @@ if __name__ == "__main__":
                 toremove))
         
     elif action == "add":
+        opts = load_config_file(args.configdir, platform)
+        opts = update_options(args, opts)
+        path = os.path.join(opts.get('directory'), opts.get('toplevel'), 'dists', platform)
         # Adds a component to an existing repo.
         packages = args.action[2:]
         modifiedrepos = []
         if os.path.exists(os.path.join(args.configdir, platform)):
             opts = load_config_file(args.configdir, platform)
             
-        if packages:
-            for p in packages:
-                if len(p) > 4 and p[-4:] in SUPPORTED_EXTENSIONS:
-                    print(p)
+        for p in packages:
+            for g in glob.iglob(p):
+                if len(g) > 4 and g[-4:] in SUPPORTED_EXTENSIONS:
                     # Get paths for copying package files
-                    paths = [os.path.join(path, platform, x) for x in opts.get('restrictions', [])]
-                    print(paths)
-                    print(opts)
-                    for a in opts.get('architecture', []):
-                        print(a)
+                    paths = [os.path.join(path, x) for x in opts['restrictions']]
+                    for a in opts['architecture']:
                         for pth in paths:
-                            shutil.copyfile(p, os.path.join(pth, arch_dir(a), p))
-                            newp = p.split(os.sep)[-1]
+                            shutil.copyfile(g, os.path.join(pth, arch_dir(a), p.split(os.sep)[-1]))
                             if not pth in modifiedrepos:
+                                print("Modified repo: {}".format(pth))
                                 modifiedrepos.append(pth)
                                 
-                            print("Copied {} to {}".format(p, os.path.join(pth, arch_dir(a), newp)))
-                            
+                            print("Copied {} to {}".format(p, os.path.join(pth, arch_dir(a), p.split(os.sep)[-1])))
+                    
         if modifiedrepos:
             for mr in modifiedrepos:
-                Packages_gz(os.path.join(opts.get('directory'), opts.get('toplevel')), mr)
+                for a in opts['architecture']:
+                    print("MODIFIED REPO {}".format(mr))
+                    Packages_gz(os.path.join(opts.get('directory'), opts.get('toplevel'), 'dists'), os.path.join(mr, arch_dir(a)))
                 
     elif action == "info":
         '''
@@ -252,6 +272,8 @@ if __name__ == "__main__":
         '''
         if os.path.exists(configpath):
             opts = load_config_file(args.configdir, platform)
+            opts = update_options(args, opts)
+            path = os.path.join(opts.get('directory'), opts.get('toplevel'), 'dists')
             output = opts
             output.update(dict(
                 repository=dict(
@@ -259,11 +281,14 @@ if __name__ == "__main__":
                      "packages": count_supported_packages(path, platform),
                      "totalsize": package_space_usage(path, platform)})))
                     
-            print(json.dumps(opts, default=str, sort_keys=True, indent=4,
+            print(json.dumps(output, default=str, sort_keys=True, indent=4,
                              separators=(',', ': ',)))
     elif action == "remove":
         packages = args.action[2:]
         modified = []
+        opts = load_config_file(args.configdir, platform)
+        opts = update_options(args, opts)
+        path = os.path.join(opts.get('directory'), opts.get('toplevel'), 'dists')
         if packages:
             for a in opts.get('architecture'):
                 a = arch_dir(a)
@@ -285,6 +310,9 @@ if __name__ == "__main__":
             Packages_gz(os.path.abspath(os.path.join(path, '..')), m)
             
     elif action == "haspkg":
+        opts = load_config_file(args.configdir, platform)
+        opts = update_options(args, opts)
+        path = os.path.join(opts.get('directory'), opts.get('toplevel'), 'dists')
         pkglist = packagelist(path, platform)
         pkgret = []
         for p in args.action[2:]:
@@ -293,17 +321,12 @@ if __name__ == "__main__":
         print('\n'.join(pkgret))
     
     elif action == "export":
+        opts = load_config_file(args.configdir, platform)
+        opts = update_options(args, opts)
         print(format_deb_line(socket.gethostbyname(socket.gethostname()),
                                 platform, opts.get('restrictions'), https=opts.get('https')))
             
         # TODO: Source repository names
-        
-    elif action == "gpg":
-        # Here we might want to automatically create some work (fibinocchi sequence?)
-        # while generating the key.
-        # This generates the key how Debian would prefer it to be generated
-        #gen_gpg_key()
-        print("FIXME: gpg generation")
         
     elif action == "help":
         print()
@@ -348,10 +371,6 @@ if __name__ == "__main__":
         print("        \to --desc")
         print("        \to --directory")
         print("        \to --toplevel")
-        print()
-        print("gpg:    Generates the gpg key. For now, let's assume the user can ")
-        print("        create their own, as entropy and environment are important")
-        print("        for the creation of a good key.")
         print()
         print("info:   ")
         print()

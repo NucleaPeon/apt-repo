@@ -26,5 +26,10 @@ def Packages_gz(webroot, path):
     print(cmd)
     proc = Popen(cmd, shell=True)
     proc.communicate()
+    cmd = "dpkg-scanpackages {} /dev/null > {}/Packages".format(
+        relpath, relpath)
+    print(cmd)
+    proc = Popen(cmd, shell=True)
+    proc.communicate()
     return proc.returncode
 
