@@ -260,7 +260,8 @@ if __name__ == "__main__":
             for mr in modifiedrepos:
                 for a in opts['architecture']:
                     print("MODIFIED REPO {}".format(mr))
-                    Packages_gz(os.path.join(opts.get('directory'), opts.get('toplevel'), 'dists'), os.path.join(mr, arch_dir(a)))
+                    print(os.path.join('dists', mr, arch_dir(a)))
+                    Packages_gz(os.path.join(opts.get('directory'), opts.get('toplevel')), os.path.join('dists', mr, arch_dir(a)))
                 
     elif action == "info":
         '''
