@@ -222,6 +222,10 @@ def write_deb_control_file(path, pkgname, **kwargs):
                 if pkgkw.get(lst):
                     cf.write("{}: {}\n".format(lst.title(), ', '.join(pkgkw.get(lst))))
         
+            cf.write("Description: {}\n".format(pkgkw.get('desc', 'Description Not Set')))
+            for d in [desc.strip() for desc in pkgkw.get('description', ['...'])]:
+                cf.write(" {}\n".format(d))
+            
             size = Decimal(pkg_installed_size(path) / 1024).quantize(Decimal('1.'), rounding=ROUND_UP)
             cf.write("Installed-Size: {}\n".format(size))
             pkgkw = kwargs.get('User', {})
@@ -232,10 +236,7 @@ def write_deb_control_file(path, pkgname, **kwargs):
             if not pkgkw.get('maintainer') is None:
                 cf.write("Maintainer: {}\n".format(', '.join(pkgkw.get('maintainer'))))
             
-            cf.write("Description: {}\n".format(pkgkw.get('desc', 'Description Not Set')))
             
-            for d in pkgkw.get('description', ['...']):
-                cf.write(" {}\n".format(d))
 
 def remove_non_deployables(toplevel, *non_deployables):
     logging.debug(__name__)
