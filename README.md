@@ -6,8 +6,8 @@ Debian Repository Manager
 Easily create and manage a locally created debian repository for custom
 software.
 
-Hooks into dh-make so it can also aide in the creation of debian packages.
-Hooks into gpg for package signing automatically if desired.
+Relies on dpkg-deb and dpkg-scanpackages and so is currently limited to
+debian-based Operating Systems until this software is made multiplatform.
 
 This is not an official apt software release. It is a custom add-on. If
 the folks at Debian decide to use apt-repo for their work, I will rename
@@ -16,6 +16,12 @@ this project.
 
 News
 ====
+
+* End of 0.10.x series announced, possible 0.10.6 release with more apt-pkg support
+  Once 0.10.6 is released, migration support will be removed for simplicity and speed.
+  If you use 0.9.x series, please update with 0.10.x and then move to 0.11.x.
+  Once Milestone 1 is reached, we move into 1.x.x territory and officially move 
+  towards stable.
 
 * Version 0.10.0 is broken, use 0.10.1. Also: ipk packages are being supported.
 
@@ -57,12 +63,16 @@ Gotchas
 Getting Started
 ===============
 
-* Download the debian binary installer
+* Download the debian binary installer package in the Releases tab.
 * Tutorial: https://github.com/NucleaPeon/apt-repo/wiki/How-to-Set-up-a-New-Repository-with-Packages
 
 
 Pre-requisites
 ==============
+
+**Not implemented**
+
+**Not required yet**
 
 Generate your gpg key for your repositories using
     gpg --gen-key
