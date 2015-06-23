@@ -81,6 +81,12 @@ class PackageDB():
     def write(self):
         config = configparser.ConfigParser()
         config.optionxform = str
+        # Force check build profiles
+        for profile in self.db['Build']['profiles']:
+            if not profile in self.PROFILES:
+                sys.stderr.write("Warning: Build Profile <{}> is not in the list " 
+                    "of supported profiles\n".format(profile))
+        
         for k, v in self.db.items():
             if not k in config.sections():
                 config[k] = {}
@@ -107,8 +113,8 @@ class PackageDB():
     def update(self, **kwargs):
         if not kwargs.get('profile') is None:
             if not kwargs['profile'] in self.PROFILES:
-                sys.stderr.print("Warning: Build Profile {} is not in the list " 
-                    "of supported profiles".format(kwargs['profile']))
+                sys.stderr.write("Warning: Build Profile <{}> is not in the list " 
+                    "of supported profiles\n".format(kwargs['profile']))
             
         # Check if kwargs reflects a key in a section in self.db
         for k, v in kwargs.items():
@@ -124,8 +130,8 @@ class PackageDB():
         
         buildprofs = [a.strip() for a in config['Build']['profiles'].split(',')]
         for bp in list(filter(lambda x: not x in self.PROFILES, buildprofs)):
-            sys.stderr.write("Warning: Build Profile {} is not in the list of supported "
-                "profiles".format(bp))
+            sys.stderr.write("Warning: Build Profile <{}> is not in the list of supported "
+                "profiles\n".format(bp))
             
         
         

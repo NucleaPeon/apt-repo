@@ -153,12 +153,10 @@ if __name__ == "__main__":
         # Check if valid first
         config = configparser.ConfigParser()
         config.read(os.path.join(opts.get('directory'), pkgname, pkgname))
-        print(config['Package']['directory'])
         print("\tNo migration required")
         db = aptrepo.lib.db.PackageDB(opts.get('directory'), pkgname, **opts)
     
     except Exception as E:
-        print(E)
         print("\tDatabase is not in config file format")
         try:
             # Do a quick check to ensure it's shelve db
@@ -189,7 +187,7 @@ if __name__ == "__main__":
             
     finally:
         if db is None:
-            print("DB IS NONE")
+            print("Database is not initialized")
             
     if not action in ACTIONS:
         sys.stderr.write("Invalid action: {}.\nAvailable actions: {}\n".format(
@@ -336,7 +334,6 @@ if __name__ == "__main__":
     
     elif action == "build":
         if db.validate():
-            print(db)
             retcodes = aptrepo.lib.build.build_package(opts.get('directory'), pkgname, **db.db)
             if not filter(lambda x: x == 0, retcodes):
                 sys.stderr.write("Error: Package Building Failed, control file may be bad\n")
