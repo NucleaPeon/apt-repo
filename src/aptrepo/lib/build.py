@@ -85,6 +85,7 @@ def create_ipk_struct(path, pkgname, **kwargs):
     return tmpdir
     
 def build_package(path, pkgname, **kwargs):
+    print(kwargs)
     pkg_profiles = kwargs['Build'].get('profiles', ['deb'])
     retcodes = []
     if 'deb' in pkg_profiles:

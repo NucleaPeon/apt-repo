@@ -5,6 +5,7 @@ TODO: Improve by chunking reads
 """
 import configparser
 import os
+import sys
 import json
 from aptrepo.lib.arch import arch
 import socket
@@ -72,7 +73,8 @@ class PackageDB():
             try:
                 self.read(path, pkgname)
                 
-            except:
+            except Exception as E:
+                print(str(E))
                 print("Found configuration file, but it cannot be read")
                 
                          
@@ -103,6 +105,11 @@ class PackageDB():
             
             
     def update(self, **kwargs):
+        if not kwargs.get('profile') is None:
+            if not kwargs['profile'] in self.PROFILES:
+                sys.stderr.print("Warning: Build Profile {} is not in the list " 
+                    "of supported profiles".format(kwargs['profile']))
+            
         # Check if kwargs reflects a key in a section in self.db
         for k, v in kwargs.items():
             for s in self.SECTIONS:
@@ -114,6 +121,13 @@ class PackageDB():
         config = configparser.ConfigParser()
         config.optionxform = str
         config.read(os.path.join(path, pkgname, pkgname))
+        
+        buildprofs = [a.strip() for a in config['Build']['profiles'].split(',')]
+        for bp in list(filter(lambda x: not x in self.PROFILES, buildprofs)):
+            sys.stderr.write("Warning: Build Profile {} is not in the list of supported "
+                "profiles".format(bp))
+            
+        
         
         for section in self.SECTIONS:
             for key in config[section]:
