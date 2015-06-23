@@ -93,16 +93,22 @@ if __name__ == "__main__":
     parser.add_argument('--depends', nargs="*", help="List package names that this package depends on.")
     parser.add_argument('--recommends', nargs="*", help="List package names that this package recommends.")
     parser.add_argument('--suggests', nargs="*", help="List package names that this package recommends.")
+    # TODO: Implement conflicts and breaks
+    parser.add_argument('--conflicts', nargs="*", help="List packages that have conflicting files or functionality with this package.")
+    parser.add_argument('--breaks', nargs="*", help="List packages that if installed, will halt the installation of this package.")
     parser.add_argument('--provides', nargs="*",
                         help="If you set the provides for a package list, its size must equal the number " 
-                        "of package names supplied to create action.")
+                        "of package names supplied to create action.",
+                        default=None)
     parser.add_argument('--built-using', nargs='*',
                         help="If you set the built-using for a package list, its size must equal the number " 
                         "of package names supplied to create action. use empty quotes for packages where " 
                         "this doesn't apply")
     parser.add_argument('--maintainer', nargs='*', help="Set the maintainer(s) for all packages in format: " 
-                        "'full name <email@this.com>'")
-    parser.add_argument('--replaces', nargs='*', help="Forces removal of package(s) before this is installed")
+                        "'full name <email@this.com>'",
+                        default=None)
+    parser.add_argument('--replaces', nargs='*', help="Forces removal of package(s) before this is installed",
+                        default=None)
     parser.add_argument('--homepage', nargs=1, help="Set the homepage in the control file.")
     parser.add_argument('--license', '-l', nargs=1, help="Specify license to associate with package")
     parser.add_argument('--set-version', nargs='?', help="Set the version string for all packages to this")
@@ -202,8 +208,8 @@ if __name__ == "__main__":
         if not os.path.exists(os.path.join(opts.get('directory'), pkgname)):
             os.makedirs(os.path.join(opts.get('directory'), pkgname), exist_ok=True)
             opts.update(
-                provides=[pkgname.lower()],
-                replaces=[],
+                provides=[].extend([pkgname.lower()] if args.provides is None else [p.lower() for p in args.provides]),
+                replaces=[] if args.replaces is None else [r.lower() for r in args.replaces],
                 control={},
                 directory=os.path.abspath(os.getcwd()),
                 is_essential=False,
