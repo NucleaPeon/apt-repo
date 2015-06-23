@@ -17,7 +17,8 @@ this project.
 News
 ====
 
-* End of 0.10.x series announced, possible 0.10.6 release with more apt-pkg support
+* End of 0.10.x series announced, possible 0.10.6 release with more apt-pkg support.
+
   Once 0.10.6 is released, migration support will be removed for simplicity and speed.
   If you use 0.9.x series, please update with 0.10.x and then move to 0.11.x.
   Once Milestone 1 is reached, we move into 1.x.x territory and officially move 
@@ -26,6 +27,7 @@ News
 * Version 0.10.0 is broken, use 0.10.1. Also: ipk packages are being supported.
 
 * Version 0.9.8 is the last of the stable gdbm/shelve database packages.
+
   Version 0.10.x will now use the easier-to-manage configparser database
   which can be edited by hand and viewable in a text editor.
 
